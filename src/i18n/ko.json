@@ -1,0 +1,34 @@
+{
+  "ivr": {
+    "greeting": "안심콜 서비스에 연결되었습니다.",
+    "medication_prompt": "오늘 {{medication}} 복용하셨습니까? 복용하셨으면 1번, 안 하셨으면 2번을 눌러주세요.",
+    "confirm_taken": "네, 복약 확인되었습니다. 감사합니다.",
+    "confirm_missed": "알겠습니다. 가족에게 알리겠습니다.",
+    "no_response": "응답이 없어 나중에 다시 연락드리겠습니다.",
+    "repeat_prompt": "다시 한번 말씀해 주시겠습니까?",
+    "goodbye": "이용해 주셔서 감사합니다. 건강하세요.",
+    "consecutive_missed_alert": "{{count}}일 연속 복약을 확인하지 못했습니다. 가족에게 알림을 전송합니다.",
+    "dtmf_prompt": "1번은 복약 완료, 2번은 미복약입니다.",
+    "stt_confirm_taken": "복약을 확인했습니다.",
+    "stt_confirm_missed": "미복약으로 기록되었습니다.",
+    "call_connected": "전화 연결에 성공했습니다.",
+    "call_failed": "전화 연결에 실패했습니다. 나중에 다시 시도합니다."
+  },
+  "notification": {
+    "medication_reminder": "{{medication}} 복약 시간입니다.",
+    "medication_taken": "{{elderName}}님이 {{medication}} 복용을 완료했습니다.",
+    "medication_missed": "{{elderName}}님이 {{medication}} 복용을 하지 않으셨습니다.",
+    "medication_escalation": "{{elderName}}님이 {{count}}일 연속 {{medication}} 복용을 하지 않으셨습니다. 즉시 확인이 필요합니다.",
+    "sos_triggered": "{{elderName}}님이 SOS를 요청했습니다!",
+    "health_alert": "{{elderName}}님의 {{vitalType}} 수치가 정상 범위를 벗어났습니다.",
+    "family_notified": "{{elderName}}님의 미복약 정보가 가족에게 전달되었습니다."
+  },
+  "error": {
+    "not_found": "요청한 리소스를 찾을 수 없습니다.",
+    "unauthorized": "인증이 필요합니다.",
+    "forbidden": "접근 권한이 없습니다.",
+    "validation": "입력값이 올바르지 않습니다.",
+    "server_error": "서버 오류가 발생했습니다.",
+    "ivr_processing": "IVR 응답 처리 중 오류가 발생했습니다."
+  }
+}

@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>노부모케어 — 부모님 걱정, 이제 AI에게 맡기세요</title>
+  <meta name="description" content="매일 전화 못 드려 죄책감 느끼셨나요? AI가 부모님 건강·위치·복약을 대신 챙깁니다. 자녀는 앱으로 확인만 하세요.">
+  <meta property="og:title" content="노부모케어 — 부모님 곁에 항상 있어드리는 AI">
+  <meta property="og:description" content="건강 모니터링, 위치 공유, 복약 알림, 응급 SOS. 4가지 기능이 부모님을 365일 지킵니다.">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&display=swap" rel="stylesheet">
+  <style>
+    /* ─── 디자인 토큰 ─── */
+
+    /* [R30 WCAG SC 2.5.5] 터치 타겟 최소 44×44px — 노인 손떨림 고려 */
+    .btn-primary, .btn-store, .btn-store-secondary, .btn-plan, .btn-white {
+      min-height: 44px;
+      min-width: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* SOS 긴급 버튼 56×56px (법적 의무급 접근성) */
+    [data-sos="true"] {
+      min-width: 56px !important;
+      min-height: 56px !important;
+    }
+    /* 포커스 링 명확히 표시 (SC 2.4.7) */
+    :focus-visible {
+      outline: 3px solid #4A7FA8;
+      outline-offset: 2px;
+    }
+
+    :root {
+      /* 색상 */
+      --bg-warm:       #FAF8F5;
+      --bg-card:       #FFFFFF;
+      --bg-section:    #F2EFE9;
+      --color-blue:    #4A7FA8;
+      --color-blue-dk: #3A6888;
+      --color-teal:    #5BA4A4;
+      --color-amber:   #E8A45A;
+      --color-coral:   #D96B5A;
+      --color-green:   #6AAF80;
+      --text-primary:  #2C2A28;
+      --text-secondary:#6A6560;
+      --text-muted:    #9E9890;
+      --border-soft:   rgba(0,0,0,0.08);
+      /* 그림자 */
+      --shadow-card:   rgba(0,0,0,0.02) 0px 0px 0px 1px,
+                       rgba(0,0,0,0.04) 0px 2px 6px,
+                       rgba(0,0,0,0.08) 0px 6px 16px;
+      --shadow-hover:  rgba(74,127,168,0.20) 0px 8px 24px;
+      /* 반경 */
+      --r-sm: 8px;
+      --r-md: 16px;
+      --r-lg: 24px;
+      --r-xl: 36px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg-warm);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── 유틸리티 ─── */
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-blue);
+      background: rgba(74,127,168,0.10);
+      padding: 4px 12px;
+      border-radius: 99px;
+    }
+
+    /* ─── 네비게이션 ─── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(250,248,245,0.90);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--color-blue);
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+    }
+    .logo-name {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-link {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-decoration: none;
+      padding: 8px 14px;
+      border-radius: var(--r-sm);
+      transition: color 0.2s, background 0.2s;
+    }
+    .nav-link:hover {
+      color: var(--text-primary);
+      background: rgba(0,0,0,0.04);
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--color-blue);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: var(--r-sm);
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary:hover {
+      background: var(--color-blue-dk);
+      box-shadow: var(--shadow-hover);
+      transform: translateY(-1px);
+    }
+
+    /* ─── 히어로 ─── */
+    .hero {
+      padding: 100px 0 80px;
+      text-align: center;
+    }
+    .hero-badge {
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 62px);
+      font-weight: 700;
+      letter-spacing: -1.2px;
+      line-height: 1.12;
+      color: var(--text-primary);
+      max-width: 720px;
+      margin: 0 auto 20px;
+    }
+    .hero h1 em {
+      font-style: normal;
+      color: var(--color-blue);
+    }
+    .hero-sub {
+      font-size: 18px;
+      color: var(--text-secondary);
+      max-width: 500px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+    .hero-cta-group {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .btn-store {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--text-primary);
+      color: #fff;
+      text-decoration: none;
+      padding: 12px 22px;
+      border-radius: var(--r-md);
+      font-weight: 500;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-store:hover {
+      background: #444;
+      transform: translateY(-1px);
+    }
+    .btn-store-secondary {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1.5px solid var(--border-soft);
+    }
+    .btn-store-secondary:hover {
+      background: rgba(0,0,0,0.04);
+      border-color: rgba(0,0,0,0.15);
+    }
+    .btn-store .store-label-sm {
+      font-size: 10px;
+      font-weight: 400;
+      opacity: 0.75;
+      display: block;
+      line-height: 1;
+    }
+    .btn-store .store-label-lg {
+      font-size: 15px;
+      font-weight: 700;
+      display: block;
+      line-height: 1;
+    }
+    .hero-note {
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* ─── 히어로 폰 목업 ─── */
+    .hero-visual {
+      margin-top: 64px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      align-items: flex-end;
+    }
+    .phone-mock {
+      width: 220px;
+      background: var(--bg-card);
+      border-radius: 28px;
+      box-shadow: var(--shadow-card);
+      padding: 20px 16px;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+    .phone-mock.secondary {
+      width: 190px;
+      opacity: 0.75;
+      transform: scale(0.95);
+    }
+    .mock-status-bar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    .mock-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+    .mock-stat-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .mock-stat {
+      flex: 1;
+      background: var(--bg-section);
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .mock-stat-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--color-blue);
+      line-height: 1;
+    }
+    .mock-stat-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+    .mock-alert {
+      background: #FFF4EC;
+      border: 1px solid rgba(232,164,90,0.3);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 11px;
+      color: #8A5A1A;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .mock-ok-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #ECFDF5;
+      color: #166534;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 99px;
+      margin-top: 10px;
+    }
+    .mock-map {
+      background: linear-gradient(135deg, #E8F4F0 0%, #DCE8F5 100%);
+      border-radius: 14px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .mock-map::before {
+      content: '';
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      background: rgba(74,127,168,0.08);
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .mock-location-tag {
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ─── 페인 포인트 섹션 ─── */
+    .pain-section {
+      background: var(--bg-section);
+      padding: 72px 0;
+      margin: 0;
+    }
+    .pain-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+    .pain-text h2 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.6px;
+      line-height: 1.3;
+      margin-bottom: 16px;
+    }
+    .pain-text p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      line-height: 1.75;
+    }
+    .pain-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .pain-card {
+      background: var(--bg-card);
+      border-radius: var(--r-md);
+      padding: 18px 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      box-shadow: rgba(0,0,0,0.04) 0px 2px 8px;
+    }
+    .pain-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .pain-card-text strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .pain-card-text span {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* ─── 기능 카드 섹션 ─── */
+    .features-section {
+      padding: 96px 0;
+    }
+    .section-header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .section-header .tag {
+      margin-bottom: 16px;
+    }
+    .section-header h2 {
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 700;
+      letter-spacing: -0.7px;
+      line-height: 1.2;
+      margin-bottom: 12px;
+    }
+    .section-header p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border-radius: var(--r-lg);
+      padding: 32px;
+      box-shadow: var(--shadow-card);
+      border: 1px solid rgba(0,0,0,0.04);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-hover);
+    }
+    .feature-icon-wrap {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 26px;
+      margin-bottom: 20px;
+    }
+    .icon-blue   { background: rgba(74,127,168,0.12); }
+    .icon-teal   { background: rgba(91,164,164,0.12); }
+    .icon-amber  { background: rgba(232,164,90,0.12); }
+    .icon-coral  { background: rgba(217,107,90,0.12); }
+    .feature-card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin-bottom: 10px;
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+    .feature-detail {
+      margin-top: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .feature-detail-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .feature-detail-item::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-blue);
+      flex-shrink: 0;
+    }
+    .feature-card.emergency .feature-detail-item::before {
+      background: var(--color-coral);
+    }
+
+    /* ─── 스토리 섹션 ─── */
+    .story-section {
+      background: var(--bg-section);
+      padding: 96px 0;
+    }
+    .story-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+    .story-text h2 {
+      font-size: clamp(26px, 3.5vw, 38px);
+      font-weight: 700;
+      letter-spacing: -0.6px;
+      line-height: 1.25;
+      margin-bottom: 20px;
+    }
+    .story-text h2 em {
+      font-style: normal;
+      color: var(--color-blue);
+    }
+    .story-text p {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin-bottom: 14px;
+    }
+    .story-text p strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .quote-block {
+      background: var(--bg-card);
+      border-left: 3px solid var(--color-blue);
+      border-radius: 0 var(--r-md) var(--r-md) 0;
+      padding: 20px 24px;
+      margin-top: 24px;
+      box-shadow: rgba(0,0,0,0.04) 0px 2px 8px;
+    }
+    .quote-text {
+      font-size: 15px;
+      color: var(--text-primary);
+      font-style: italic;
+      line-height: 1.7;
+      margin-bottom: 10px;
+    }
+    .quote-author {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .persona-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .persona-card {
+      background: var(--bg-card);
+      border-radius: var(--r-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-card);
+      border: 1px solid rgba(0,0,0,0.05);
+    }
+    .persona-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .persona-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .avatar-blue  { background: rgba(74,127,168,0.12); }
+    .avatar-green { background: rgba(106,175,128,0.12); }
+    .persona-info strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .persona-info span {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .persona-story {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+    .persona-result {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #166534;
+      background: #ECFDF5;
+      padding: 6px 12px;
+      border-radius: 99px;
+      display: inline-flex;
+    }
+
+    /* ─── 요금제 ─── */
+    .pricing-section {
+      padding: 96px 0;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .pricing-card {
+      background: var(--bg-card);
+      border-radius: var(--r-lg);
+      padding: 36px 32px;
+      box-shadow: var(--shadow-card);
+      border: 1px solid rgba(0,0,0,0.05);
+      position: relative;
+    }
+    .pricing-card.featured {
+      border-color: var(--color-blue);
+      box-shadow: 0 0 0 2px rgba(74,127,168,0.20), var(--shadow-card);
+    }
+    .pricing-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--color-blue);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 14px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+    .plan-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .plan-price {
+      font-size: 38px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .plan-price span {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0;
+    }
+    .plan-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    .plan-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .plan-features li {
+      font-size: 13px;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .plan-features li::before {
+      content: '✓';
+      color: var(--color-blue);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .btn-plan {
+      display: block;
+      text-align: center;
+      background: var(--bg-section);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px;
+      border-radius: var(--r-sm);
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .pricing-card.featured .btn-plan {
+      background: var(--color-blue);
+      color: #fff;
+    }
+    .btn-plan:hover {
+      opacity: 0.85;
+    }
+
+    /* ─── CTA 배너 ─── */
+    .cta-section {
+      padding: 80px 0;
+    }
+    .cta-inner {
+      background: linear-gradient(135deg, var(--color-blue) 0%, #3A6888 100%);
+      border-radius: var(--r-xl);
+      padding: 64px 48px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-inner::before {
+      content: '';
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 50%;
+      top: -100px;
+      left: -80px;
+    }
+    .cta-inner::after {
+      content: '';
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 50%;
+      bottom: -60px;
+      right: -40px;
+    }
+    .cta-inner h2 {
+      font-size: clamp(26px, 4vw, 38px);
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.6px;
+      margin-bottom: 12px;
+      position: relative;
+      z-index: 1;
+    }
+    .cta-inner p {
+      font-size: 16px;
+      color: rgba(255,255,255,0.80);
+      margin-bottom: 36px;
+      position: relative;
+      z-index: 1;
+    }
+    .cta-btn-group {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
+    }
+    .btn-white {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: #fff;
+      color: var(--text-primary);
+      text-decoration: none;
+      padding: 14px 24px;
+      border-radius: var(--r-md);
+      font-weight: 600;
+      font-size: 15px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-white:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+    .btn-white-outline {
+      background: transparent;
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.5);
+    }
+    .btn-white-outline:hover {
+      border-color: #fff;
+      background: rgba(255,255,255,0.08);
+    }
+
+    /* ─── 푸터 ─── */
+    footer {
+      border-top: 1px solid var(--border-soft);
+      padding: 40px 0;
+    }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .footer-copy {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+    .footer-links a {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover {
+      color: var(--text-secondary);
+    }
+    .disclaimer {
+      background: var(--bg-section);
+      border-radius: var(--r-sm);
+      padding: 14px 20px;
+      margin-top: 24px;
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ─── 반응형 ─── */
+    @media (max-width: 768px) {
+      .pain-inner,
+      .story-inner,
+      .features-grid,
+      .pricing-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+      .hero { padding: 64px 0 48px; }
+      .hero-visual { display: none; }
+      .cta-inner { padding: 48px 24px; }
+      .nav-links .nav-link { display: none; }
+    }
+  </style>
+</head>
+<body>
+<a href="#main-content" 
+   style="position:absolute;top:-40px;left:0;background:#000;color:#fff;padding:8px;z-index:9999;border-radius:0 0 4px 0;font-size:14px;"
+   accesskey="s"
+   onfocus="this.style.top='0'"
+   onblur="this.style.top='-40px'">본문 바로가기</a>
+
+<!-- ───────── 네비게이션 ───────── -->
+<nav>
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#" class="logo" aria-label="노부모케어 홈으로 이동">
+        <div class="logo-icon">🏡</div>
+        <span class="logo-name">노부모케어</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features" class="nav-link">기능</a>
+        <a href="#story" class="nav-link">이용 사례</a>
+        <a href="#pricing" class="nav-link">요금제</a>
+        <a href="#download" class="btn-primary" aria-label="무료로 시작하기 — 케어링 앱 다운로드">무료로 시작하기</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ───────── 히어로 ───────── -->
+<main id="main-content" role="main">
+<section class="hero">
+  <div class="container">
+    <div class="hero-badge">
+      <span class="tag">🛡️ AI 시니어 케어</span>
+    </div>
+    <h1>부모님 걱정,<br>이제 <em>AI에게</em> 맡기세요</h1>
+    <p class="hero-sub">
+      매일 안부 전화 못 드려 마음 쓰이셨나요?<br>
+      AI가 건강·위치·복약을 24시간 지켜드립니다.
+    </p>
+    <div class="hero-cta-group">
+      <a href="#download" class="btn-store" aria-label="App Store에서 다운로드">
+        <span style="font-size:20px;">🍎</span>
+        <span>
+          <span class="store-label-sm">App Store에서</span>
+          <span class="store-label-lg">다운로드</span>
+        </span>
+      </a>
+      <a href="#download" class="btn-store btn-store-secondary" aria-label="Google Play에서 다운로드">
+        <span style="font-size:20px;">▶</span>
+        <span>
+          <span class="store-label-sm">Google Play에서</span>
+          <span class="store-label-lg">다운로드</span>
+        </span>
+      </a>
+    </div>
+    <p class="hero-note">첫 30일 무료 체험 · 언제든 해지 가능</p>
+
+    <!-- 폰 목업 -->
+    <div class="hero-visual">
+      <div class="phone-mock secondary">
+        <div class="mock-status-bar"><span>09:41</span><span>●●●</span></div>
+        <div class="mock-map">🗺️</div>
+        <div class="mock-location-tag">📍 집 근처 공원 — 10분 전</div>
+        <div class="mock-ok-badge">✅ 안전구역 내</div>
+      </div>
+      <div class="phone-mock">
+        <div class="mock-status-bar"><span>09:41</span><span>●●●</span></div>
+        <div class="mock-title">오늘 현황 — 어머니</div>
+        <div class="mock-stat-row">
+          <div class="mock-stat">
+            <div class="mock-stat-val">정상</div>
+            <div class="mock-stat-label">혈압</div>
+          </div>
+          <div class="mock-stat">
+            <div class="mock-stat-val">✅</div>
+            <div class="mock-stat-label">복약 완료</div>
+          </div>
+          <div class="mock-stat">
+            <div class="mock-stat-val">3,247</div>
+            <div class="mock-stat-label">오늘 걸음</div>
+          </div>
+        </div>
+        <div class="mock-alert">
+          <span>💊</span>
+          <span>오후 2시 혈압약 복용 예정</span>
+        </div>
+      </div>
+      <div class="phone-mock secondary">
+        <div class="mock-status-bar"><span>09:41</span><span>●●●</span></div>
+        <div class="mock-title">긴급 연락처</div>
+        <div class="mock-stat-row">
+          <div class="mock-stat" style="background:#FFF0F0;">
+            <div class="mock-stat-val" style="color:#D96B5A;">SOS</div>
+            <div class="mock-stat-label">응급버튼</div>
+          </div>
+          <div class="mock-stat">
+            <div class="mock-stat-val">119</div>
+            <div class="mock-stat-label">자동연동</div>
+          </div>
+        </div>
+        <div class="mock-ok-badge" style="background:#FFF0F0; color:#B91C1C; margin-top:8px;">🚨 즉시 보호자 알림</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────── 페인 포인트 ───────── -->
+<section class="pain-section">
+  <div class="container">
+    <div class="pain-inner">
+      <div class="pain-text">
+        <span class="tag" style="margin-bottom:16px; display:inline-flex;">마음 속 이야기</span>
+        <h2>매일 전화하고 싶은데<br>막상 누르기가 어렵습니다</h2>
+        <p>
+          바쁜 직장, 어린 아이들, 거리까지 멀면 더욱 그렇습니다.
+          전화를 하면 부모님이 부담스러워하실까 봐, 안 하면 혹시나 싶고.
+          그 사이에서 쌓이는 죄책감이 결코 작지 않습니다.
+        </p>
+      </div>
+      <div class="pain-cards">
+        <div class="pain-card">
+          <div class="pain-icon">😔</div>
+          <div class="pain-card-text">
+            <strong>매일 전화하기가 눈치 보인다</strong>
+            <span>전화를 드려도 짧게 끊고 싶어 하시는 것 같아서…</span>
+          </div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-icon">⏰</div>
+          <div class="pain-card-text">
+            <strong>바쁜데 챙겨야 한다는 죄책감</strong>
+            <span>퇴근하고 나면 이미 늦은 시간. 연락하기 더 조심스럽습니다.</span>
+          </div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-icon">👨‍👩‍👧‍👦</div>
+          <div class="pain-card-text">
+            <strong>형제끼리 서로 떠밀다 결국 아무도</strong>
+            <span>"네가 했으니까 나는 괜찮겠지"— 이 순환이 계속됩니다.</span>
+          </div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-icon">🏥</div>
+          <div class="pain-card-text">
+            <strong>갑자기 연락 없으면 제일 먼저 최악을 상상</strong>
+            <span>전화를 안 받으시면 심장이 먼저 내려앉습니다.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────── 핵심 기능 ───────── -->
+<section class="features-section" id="features">
+  <div class="container">
+    <div class="section-header">
+      <span class="tag">핵심 기능</span>
+      <h2>4가지가 하나의 앱에</h2>
+      <p>따로 쓸 필요 없습니다. 건강·위치·복약·응급이 모두 이 앱 안에 있습니다.</p>
+    </div>
+    <div class="features-grid">
+
+      <!-- 건강 모니터링 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap icon-blue">❤️</div>
+        <h3>건강 모니터링</h3>
+        <p>혈압, 혈당, 걸음 수를 연동 기기에서 자동으로 기록합니다. 수치가 범위를 벗어나면 즉시 보호자에게 알립니다.</p>
+        <div class="feature-detail">
+          <div class="feature-detail-item">스마트워치·혈압계 자동 연동</div>
+          <div class="feature-detail-item">이상 수치 즉시 알림</div>
+          <div class="feature-detail-item">주간·월간 리포트 자동 생성</div>
+        </div>
+      </div>
+
+      <!-- 위치 공유 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap icon-teal">📍</div>
+        <h3>위치 공유</h3>
+        <p>집·자주 가는 병원·마트를 안전구역으로 등록해두면, 벗어났을 때 바로 알려드립니다. 길 잃으실까 걱정하지 않아도 됩니다.</p>
+        <div class="feature-detail">
+          <div class="feature-detail-item">안전구역 이탈 즉시 알림</div>
+          <div class="feature-detail-item">실시간 위치 공유 (동의 후)</div>
+          <div class="feature-detail-item">이동 기록 최대 30일 보관</div>
+        </div>
+      </div>
+
+      <!-- 복약 알림 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap icon-amber">💊</div>
+        <h3>복약 알림</h3>
+        <p>복용 시간이 되면 부모님 폰으로 알려드립니다. 확인하셨으면 보호자에게 자동 통보. 놓쳤으면 재알림까지.</p>
+        <div class="feature-detail">
+          <div class="feature-detail-item">복용 완료 → 보호자 자동 알림</div>
+          <div class="feature-detail-item">미복용 시 최대 3회 재알림</div>
+          <div class="feature-detail-item">복약 이력 의사 공유 기능</div>
+        </div>
+      </div>
+
+      <!-- 응급 버튼 -->
+      <div class="feature-card emergency">
+        <div class="feature-icon-wrap icon-coral">🚨</div>
+        <h3>응급 버튼</h3>
+        <p>넘어지거나 갑자기 몸이 안 좋을 때 버튼 하나로 보호자와 119에 동시에 연락됩니다. 위치 정보도 함께 전송됩니다.</p>
+        <div class="feature-detail">
+          <div class="feature-detail-item">버튼 1회 → 보호자 전원 동시 알림</div>
+          <div class="feature-detail-item">119 연동 (소방청 API)</div>
+          <div class="feature-detail-item">낙상 자동 감지 (선택 설정)</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ───────── 보호자 스토리 ───────── -->
+<section class="story-section" id="story">
+  <div class="container">
+    <div class="story-inner">
+      <div class="story-text">
+        <span class="tag" style="margin-bottom:16px; display:inline-flex;">이용 후기</span>
+        <h2>처음엔 반신반의했는데<br><em>어머니가 먼저 기다리세요</em></h2>
+        <p>
+          경기도에서 서울로 출퇴근하는 <strong>42세 직장인 김민준 씨</strong>는
+          부산에 혼자 계신 어머니(72세)를 매일 걱정했습니다.
+        </p>
+        <p>
+          노부모케어를 시작한 뒤 달라진 것은 하나였습니다. 매일 저녁 7시,
+          AI가 어머니께 전화 대신 앱 알림을 드렸고, 어머니는 그 시간을
+          기다리셨습니다. 복약 확인 후 "오늘도 잘 먹었다" 체크 버튼을 누르시면
+          김씨 폰으로 조용히 알림이 왔습니다.
+        </p>
+        <div class="quote-block">
+          <p class="quote-text">"전화를 하면 짧게 받으시던 어머니가, 이제는 앱 체크를 먼저 해두시고 저를 기다리세요. 오히려 관계가 더 가까워진 것 같아요."</p>
+          <div class="quote-author">— 김민준, 42세 / 직장인 (서울 거주, 부모님 부산)</div>
+        </div>
+      </div>
+
+      <div class="persona-cards">
+        <div class="persona-card">
+          <div class="persona-header">
+            <div class="persona-avatar avatar-blue">👩</div>
+            <div class="persona-info">
+              <strong>박지영 (38세)</strong>
+              <span>워킹맘 · 부모님 두 분 동시 케어</span>
+            </div>
+          </div>
+          <p class="persona-story">
+            시부모님과 친정 부모님, 네 분을 한 앱에서 관리합니다.
+            혈압약 드시는 시어머니 복약 알림이 제일 유용해요.
+            전에는 매번 전화로 확인해야 했는데 지금은 알림 보고 끝입니다.
+          </p>
+          <div class="persona-result">✅ 하루 20분 절약 · 4명 동시 모니터링</div>
+        </div>
+
+        <div class="persona-card">
+          <div class="persona-header">
+            <div class="persona-avatar avatar-green">👨</div>
+            <div class="persona-info">
+              <strong>이재호 (51세)</strong>
+              <span>해외 출장 잦은 사업가</span>
+            </div>
+          </div>
+          <p class="persona-story">
+            시차가 달라도 걱정을 놓을 수 있었던 건 위치 기능 덕분이었습니다.
+            아버지가 치매 초기 진단을 받으신 뒤 혼자 나가실 때마다 불안했는데,
+            안전구역 이탈 알림이 그 불안을 많이 줄여줬습니다.
+          </p>
+          <div class="persona-result">📍 안전구역 이탈 0건 (사용 3개월)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────── 요금제 ───────── -->
+<section class="pricing-section" id="pricing">
+  <div class="container">
+    <div class="section-header">
+      <span class="tag">요금제</span>
+      <h2>부담 없이 시작하세요</h2>
+      <p>첫 30일은 모든 기능을 무료로 사용할 수 있습니다.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="plan-name">베이직</div>
+        <div class="plan-price">₩9,900 <span>/월</span></div>
+        <p class="plan-desc">혼자 계신 부모님 한 분</p>
+        <ul class="plan-features">
+          <li>부모님 1인 프로필</li>
+          <li>하루 2회 복약 알림</li>
+          <li>건강 데이터 기본 연동</li>
+          <li>위치 공유 (무제한)</li>
+          <li>응급 버튼 (보호자 알림)</li>
+          <li>30일 이력 보관</li>
+        </ul>
+        <a href="#download" class="btn-plan">무료로 시작하기</a>
+      </div>
+      <div class="pricing-card featured">
+        <div class="pricing-badge">가장 많이 선택</div>
+        <div class="plan-name">프리미엄</div>
+        <div class="plan-price">₩19,900 <span>/월</span></div>
+        <p class="plan-desc">두 분 이상, 형제 공유 추천</p>
+        <ul class="plan-features">
+          <li>부모님 최대 2인 프로필</li>
+          <li>복약 알림 무제한</li>
+          <li>가족 그룹 공유 (형제 최대 5명)</li>
+          <li>119 자동 연동 응급 SOS</li>
+          <li>낙상 자동 감지 (스마트워치)</li>
+          <li>의사 공유용 건강 리포트</li>
+          <li>90일 이력 보관</li>
+        </ul>
+        <a href="#download" class="btn-plan">무료로 시작하기</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────── CTA 배너 ───────── -->
+<section class="cta-section" id="download">
+  <div class="container">
+    <div class="cta-inner">
+      <h2>오늘부터 부모님 곁에 AI가 함께합니다</h2>
+      <p>설치 3분. 부모님 스마트폰에 앱을 깔아드리면 바로 시작됩니다.</p>
+      <div class="cta-btn-group">
+        <a href="#" class="btn-white">
+          <span style="font-size:18px;">🍎</span>
+          <span>
+            <small style="display:block; font-size:10px; font-weight:400; opacity:0.7;">App Store에서</small>
+            <strong>다운로드</strong>
+          </span>
+        </a>
+        <a href="#" class="btn-white btn-white-outline">
+          <span style="font-size:18px;">▶</span>
+          <span>
+            <small style="display:block; font-size:10px; font-weight:400; opacity:0.7;">Google Play에서</small>
+            <strong>다운로드</strong>
+          </span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────── 푸터 ───────── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div>
+        <a href="#" class="logo" style="margin-bottom:6px; display:inline-flex;">
+          <div class="logo-icon">🏡</div>
+          <span class="logo-name">노부모케어</span>
+        </a>
+        <p class="footer-copy" style="margin-top:6px;">© 2026 노부모케어 주식회사</p>
+      </div>
+      <div class="footer-links">
+        <a href="/privacy" aria-label="개인정보처리방침 페이지 열기">개인정보처리방침</a>
+        <a href="#" aria-label="이용약관 페이지 열기">이용약관</a>
+        <a href="#">고객센터</a>
+        <a href="#">공지사항</a>
+      </div>
+    </div>
+    <div class="disclaimer">
+      본 서비스는 복약 알림·안부 확인·가족 소통 서비스이며 의료 진단·처방·상담을 제공하지 않습니다.
+      건강 이상 증상 발생 시 반드시 의사에게 직접 상담하십시오.
+      위치 공유 및 건강 데이터 연동은 이용자의 명시적 동의 하에 운영되며,
+      개인정보보호법 및 정보통신망법을 완전히 준수합니다.
+      <strong>안부 통화 내용은 수집·저장·분석되지 않습니다.</strong> 통화는 부모님과 자녀 간 직접 연결됩니다.
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

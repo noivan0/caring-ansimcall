@@ -1,0 +1,34 @@
+{
+  "ivr": {
+    "greeting": "ケアリング安心コールサービスに接続されました。",
+    "medication_prompt": "本日{{medication}}を服用されましたか？服用した場合は1番、していない場合は2番を押してください。",
+    "confirm_taken": "服薬が確認されました。ありがとうございます。",
+    "confirm_missed": "承知しました。ご家族にお知らせします。",
+    "no_response": "応答がありませんでした。後ほど再度ご連絡します。",
+    "repeat_prompt": "もう一度おっしゃっていただけますか？",
+    "goodbye": "ご利用ありがとうございました。お体に気をつけてください。",
+    "consecutive_missed_alert": "{{count}}日連続で服薬が確認できませんでした。ご家族に通知します。",
+    "dtmf_prompt": "服薬済みの場合は1番、未服薬の場合は2番を押してください。",
+    "stt_confirm_taken": "音声で服薬を確認しました。",
+    "stt_confirm_missed": "未服薬として記録されました。",
+    "call_connected": "電話の接続に成功しました。",
+    "call_failed": "電話の接続に失敗しました。後ほど再試行します。"
+  },
+  "notification": {
+    "medication_reminder": "{{medication}}の服薬時間です。",
+    "medication_taken": "{{elderName}}さんが{{medication}}を服用しました。",
+    "medication_missed": "{{elderName}}さんが{{medication}}を服用されていません。",
+    "medication_escalation": "{{elderName}}さんが{{count}}日連続で{{medication}}を服用されていません。至急確認が必要です。",
+    "sos_triggered": "{{elderName}}さんがSOSを要請しました！",
+    "health_alert": "{{elderName}}さんの{{vitalType}}が正常範囲を超えています。",
+    "family_notified": "{{elderName}}さんの未服薬情報がご家族に通知されました。"
+  },
+  "error": {
+    "not_found": "リクエストされたリソースが見つかりません。",
+    "unauthorized": "認証が必要です。",
+    "forbidden": "アクセス権限がありません。",
+    "validation": "入力値が正しくありません。",
+    "server_error": "サーバーエラーが発生しました。",
+    "ivr_processing": "IVR応答の処理中にエラーが発生しました。"
+  }
+}

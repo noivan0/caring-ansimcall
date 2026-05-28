@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>케어링 — 부모님 안부를 AI에게</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--p:#0ea5e9;--pd:#0284c7;--s:#22c55e;--w:#f97316;--d:#ef4444;--wn:#f59e0b;--bg:#f0f9ff;--bg2:#e0f2fe;--card:#fff;--t:#0c4a6e;--t2:#0369a1;--t3:#64748b;--bd:#bae6fd;--r:14px;--sh:0 2px 12px rgba(14,165,233,.1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--t);font-family:'Noto Sans KR',sans-serif;font-size:1rem;min-height:100vh}
+.app{max-width:480px;margin:0 auto;min-height:100vh}
+
+/* ── 로그인/회원가입 ── */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,#0ea5e9,#0284c7 50%,#f0f9ff 50%)}
+.auth-card{background:#fff;border-radius:24px;padding:36px 28px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(14,165,233,.2)}
+.auth-logo{text-align:center;font-size:2.4rem;margin-bottom:4px}
+.auth-title{text-align:center;font-size:1.4rem;font-weight:700;color:var(--t);margin-bottom:4px}
+.auth-sub{text-align:center;font-size:.875rem;color:var(--t3);margin-bottom:24px}
+.auth-tabs{display:flex;background:var(--bg2);border-radius:10px;padding:4px;margin-bottom:20px}
+.auth-tab{flex:1;padding:8px;text-align:center;border:none;background:none;border-radius:8px;font-family:inherit;font-size:.875rem;font-weight:600;color:var(--t3);cursor:pointer;transition:.2s}
+.auth-tab.on{background:#fff;color:var(--p);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.role-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.role-btn{padding:14px 8px;border:2px solid var(--bd);border-radius:12px;background:#fff;cursor:pointer;text-align:center;font-family:inherit;transition:.2s}
+.role-btn .r-icon{font-size:1.5rem;display:block;margin-bottom:4px}
+.role-btn .r-name{font-size:.875rem;font-weight:600;color:var(--t2)}
+.role-btn .r-desc{font-size:.75rem;color:var(--t3);margin-top:2px}
+.role-btn.sel{border-color:var(--p);background:rgba(14,165,233,.06)}
+.fg{margin-bottom:14px}
+.lbl{font-size:.85rem;font-weight:600;color:var(--t2);margin-bottom:6px;display:block}
+.inp{width:100%;padding:12px 14px;border:1.5px solid var(--bd);border-radius:10px;font-family:inherit;font-size:1rem;color:var(--t);background:#fff;outline:none;transition:.2s}
+.inp:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(14,165,233,.1)}
+.btn{padding:13px 18px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s;min-height:48px}
+.btn-p{background:var(--p);color:#fff}.btn-p:hover{background:var(--pd)}
+.btn-o{background:#fff;border:1.5px solid var(--bd);color:var(--t2)}
+.btn-d{background:var(--d);color:#fff}
+.btn-full{width:100%}
+.auth-err{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:.85rem;color:#dc2626;margin-bottom:12px;display:none}
+.auth-err.show{display:block}
+
+/* ── 공통 앱 헤더 ── */
+.hdr{background:var(--p);padding:16px 20px 12px;color:#fff}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.logo{font-size:1.2rem;font-weight:700;display:flex;align-items:center;gap:8px}
+.logo-ico{background:rgba(255,255,255,.2);width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.9rem}
+.hdr-sub{font-size:.82rem;opacity:.85}
+.hdr-user{display:flex;align-items:center;gap:8px}
+.role-badge{font-size:.7rem;background:rgba(255,255,255,.2);padding:3px 8px;border-radius:20px;font-weight:600}
+.logout-btn{background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 10px;border-radius:8px;font-family:inherit;font-size:.75rem;cursor:pointer;font-weight:600}
+.logout-btn:hover{background:rgba(255,255,255,.25)}
+
+/* ── 탭 ── */
+.tabs{display:flex;background:#fff;border-bottom:1px solid var(--bd)}
+.tab{flex:1;padding:13px 4px;text-align:center;border:none;background:none;font-family:inherit;font-size:.8rem;color:var(--t3);border-bottom:2px solid transparent;cursor:pointer;transition:.15s;font-weight:500}
+.tab.on{color:var(--p);border-bottom-color:var(--p);font-weight:700}
+.page{display:none;padding:16px;overflow-y:auto}
+.page.on{display:block}
+
+/* ── 카드 ── */
+.card{background:var(--card);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--sh);border:1px solid var(--bd)}
+.card-title{font-size:.75rem;font-weight:700;color:var(--t3);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:6px}
+
+/* ── 상태 그리드 ── */
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.status-item{background:var(--bg);border:1.5px solid var(--bd);border-radius:12px;padding:14px;text-align:center}
+.st-icon{font-size:1.6rem;margin-bottom:5px}
+.st-label{font-size:.7rem;color:var(--t3);margin-bottom:2px}
+.st-value{font-size:.9rem;font-weight:700}
+
+/* ── 빠른 행동 ── */
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qa-btn{padding:15px 10px;border:none;border-radius:12px;cursor:pointer;font-family:inherit;font-size:.9rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:7px;transition:.15s;min-height:52px}
+.qa-btn:hover{transform:translateY(-2px);filter:brightness(1.05)}
+.qb-call{background:var(--p);color:#fff}
+.qb-msg{background:var(--w);color:#fff}
+.qb-sos{background:var(--d);color:#fff;font-size:1.1rem}
+.qb-loc{background:var(--bg2);color:var(--t2);border:1.5px solid var(--bd)}
+
+/* ── 복약 리스트 ── */
+.med-list{display:flex;flex-direction:column;gap:10px}
+.med-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg);border-radius:10px;border:1.5px solid var(--bd)}
+.med-icon{font-size:1.4rem;flex-shrink:0}
+.med-info{flex:1}
+.med-name{font-weight:700;font-size:.95rem}
+.med-time{font-size:.78rem;color:var(--t3);margin-top:2px}
+.med-chk{width:30px;height:30px;border-radius:50%;border:2px solid var(--bd);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.9rem;transition:.15s;flex-shrink:0}
+.med-chk.done{background:var(--s);border-color:var(--s);color:#fff}
+
+/* ── 토스트 ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--p);color:#fff;padding:10px 20px;border-radius:50px;font-weight:600;font-size:.82rem;opacity:0;transition:.2s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── 배너 ── */
+.info-banner{background:rgba(245,158,11,.08);border:1.5px solid rgba(245,158,11,.3);border-radius:10px;padding:10px 14px;display:flex;align-items:flex-start;gap:8px;font-size:.82rem;color:#92400e;margin-bottom:12px}
+
+/* ── SOS 버튼 (elder) ── */
+.sos-wrap{text-align:center;padding:12px 0}
+.sos-btn{width:130px;height:130px;border-radius:50%;background:var(--d);color:#fff;border:none;font-family:inherit;font-size:1.1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(239,68,68,.4);transition:.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;margin:0 auto}
+.sos-btn:hover{transform:scale(1.05)}
+.sos-btn:active{transform:scale(.97)}
+
+/* ── 건강 체크 ── */
+.health-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.hb{padding:10px;border:1.5px solid var(--bd);border-radius:10px;background:var(--bg);font-family:inherit;font-size:.8rem;font-weight:600;color:var(--t2);cursor:pointer;text-align:center;transition:.15s}
+.hb.sel{border-color:var(--p);background:rgba(14,165,233,.08);color:var(--p)}
+.submit-health-btn{width:100%;margin-top:10px}
+
+/* ── admin 테이블 ── */
+.user-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.user-table th{background:var(--bg2);padding:8px;text-align:left;color:var(--t2);font-weight:600}
+.user-table td{padding:8px;border-bottom:1px solid var(--bd)}
+.role-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:600}
+.role-tag.guardian{background:#dbeafe;color:#1d4ed8}
+.role-tag.elder{background:#dcfce7;color:#166534}
+
+/* ── 서버 상태 ── */
+.srv-rows{background:var(--bg);border-radius:10px;padding:4px 12px}
+.srv-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--bd);font-size:.88rem}
+.srv-row:last-child{border:none}
+.srv-ok{color:var(--s);font-weight:600}.srv-err{color:var(--d);font-weight:600}.srv-warn{color:var(--wn);font-weight:600}
+.dot-live{width:8px;height:8px;border-radius:50%;background:#4ade80;flex-shrink:0}
+
+/* ── 메시지 폼 ── */
+.msg-form{background:var(--bg);border-radius:10px;padding:12px;margin-top:10px;display:none}
+.msg-form.open{display:block}
+textarea{width:100%;padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-family:inherit;font-size:.9rem;color:var(--t);background:#fff;resize:none;min-height:72px;outline:none}
+textarea:focus{border-color:var(--p)}
+</style>
+</head>
+<body>
+
+<!-- ── 로그인/회원가입 화면 ── -->
+<div id="auth-screen" class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo">🏠</div>
+    <div class="auth-title">케어링</div>
+    <div class="auth-sub">부모님 안부를 AI에게 맡기세요</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab on" id="tab-login">로그인</button>
+      <button class="auth-tab" id="tab-register">회원가입</button>
+    </div>
+
+    <div id="auth-err" class="auth-err"></div>
+
+    <!-- 로그인 폼 -->
+    <div id="login-form">
+      <div class="fg">
+        <label class="lbl">이메일</label>
+        <input class="inp" id="login-email" type="email" placeholder="example@email.com">
+      </div>
+      <div class="fg">
+        <label class="lbl">비밀번호</label>
+        <input class="inp" id="login-pw" type="password" placeholder="비밀번호 입력">
+      </div>
+      <button class="btn btn-p btn-full" id="login-btn">로그인</button>
+      <div style="text-align:center;margin-top:12px;font-size:.8rem;color:var(--t3)">
+        체험 계정: guardian@caring.kr / admin@caring.kr (pw: caring1234)
+      </div>
+    </div>
+
+    <!-- 회원가입 폼 -->
+    <div id="register-form" style="display:none">
+      <div class="role-btns">
+        <button class="role-btn sel" data-role="guardian" id="role-guardian">
+          <span class="r-icon">👨‍👩‍👧</span>
+          <span class="r-name">보호자</span>
+          <span class="r-desc">부모님을 케어하는 분</span>
+        </button>
+        <button class="role-btn" data-role="elder" id="role-elder">
+          <span class="r-icon">👴</span>
+          <span class="r-name">케어 대상자</span>
+          <span class="r-desc">케어를 받는 어르신</span>
+        </button>
+      </div>
+      <div class="fg">
+        <label class="lbl">이름</label>
+        <input class="inp" id="reg-name" type="text" placeholder="이름 입력">
+      </div>
+      <div class="fg">
+        <label class="lbl">이메일</label>
+        <input class="inp" id="reg-email" type="email" placeholder="example@email.com">
+      </div>
+      <div class="fg">
+        <label class="lbl">비밀번호 (8자 이상, 숫자 포함)</label>
+        <input class="inp" id="reg-pw" type="password" placeholder="비밀번호 입력">
+      </div>
+      <button class="btn btn-p btn-full" id="register-btn">회원가입</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 보호자(guardian) 앱 ── -->
+<div id="guardian-app" class="app" style="display:none">
+  <div class="hdr">
+    <div class="hdr-top">
+      <div class="logo"><div class="logo-ico">🏠</div>케어링</div>
+      <div class="hdr-user">
+        <span class="role-badge">보호자</span>
+        <button class="logout-btn" id="g-logout">로그아웃</button>
+      </div>
+    </div>
+    <div class="hdr-sub" id="g-hdr-sub">안부를 AI에게 맡기세요</div>
+  </div>
+  <div class="tabs">
+    <button class="tab on" data-page="g-home">🏠 홈</button>
+    <button class="tab" data-page="g-meds">💊 복약</button>
+    <button class="tab" data-page="g-health">❤️ 건강</button>
+    <button class="tab" data-page="g-system">⚙️ 설정</button>
+  </div>
+
+  <!-- 홈 -->
+  <div class="page on" id="g-home">
+    <div class="card">
+      <div class="card-title">👴 연결된 부모님</div>
+      <div id="g-elder-profile" style="display:flex;align-items:center;gap:14px">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--bg2);border:3px solid var(--p);display:flex;align-items:center;justify-content:center;font-size:1.5rem">👴</div>
+        <div>
+          <div style="font-size:1.05rem;font-weight:700" id="g-elder-name">연결된 부모님 없음</div>
+          <div style="font-size:.8rem;color:var(--t3);margin-top:2px" id="g-elder-status">등록 후 연결하세요</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 오늘 현황</div>
+      <div class="status-grid">
+        <div class="status-item"><div class="st-icon">💊</div><div class="st-label">복약</div><div class="st-value" id="g-med-status" style="color:var(--wn)">확인 필요</div></div>
+        <div class="status-item"><div class="st-icon">📍</div><div class="st-label">위치</div><div class="st-value" style="color:var(--s)">안전구역</div></div>
+        <div class="status-item"><div class="st-icon">📞</div><div class="st-label">마지막 통화</div><div class="st-value" id="g-last-call">없음</div></div>
+        <div class="status-item"><div class="st-icon">❤️</div><div class="st-label">건강 점수</div><div class="st-value" id="g-health-score" style="color:var(--wn)">DB 필요</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚡ 빠른 행동</div>
+      <div class="qa-grid">
+        <button class="qa-btn qb-call" id="g-btn-call">📞 통화하기</button>
+        <button class="qa-btn qb-msg" id="g-btn-msg">💬 안부 메시지</button>
+        <button class="qa-btn qb-loc" id="g-btn-loc">📍 위치 확인</button>
+        <button class="qa-btn qb-loc" id="g-btn-family">👨‍👩‍👧 보호자 추가</button>
+      </div>
+      <div class="msg-form" id="g-msg-form">
+        <p style="font-size:.8rem;color:var(--t3);margin-bottom:8px">💬 안부 메시지 보내기</p>
+        <textarea id="g-msg-text" placeholder="안녕하세요! 오늘 식사는 하셨어요? 💕"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-w" style="flex:1" id="g-btn-send-msg">보내기</button>
+          <button class="btn btn-o" style="padding:10px 14px" id="g-btn-cancel-msg">취소</button>
+        </div>
+      </div>
+    </div>
+    <div class="info-banner"><span style="font-size:1.1rem">💡</span><div>DB 연결 후 실시간 위치·건강·응급 알림이 활성화됩니다.</div></div>
+  </div>
+
+  <!-- 복약 -->
+  <div class="page" id="g-meds">
+    <div class="card">
+      <div class="card-title">💊 오늘 복약 일정</div>
+      <div class="med-list" id="g-med-list"><div style="text-align:center;padding:20px;color:var(--t3)">등록된 복약 없음</div></div>
+      <button class="btn btn-p btn-full" style="margin-top:12px;padding:11px" id="g-btn-add-med">＋ 복약 추가</button>
+    </div>
+  </div>
+
+  <!-- 건강 -->
+  <div class="page" id="g-health">
+    <div class="card">
+      <div class="card-title">❤️ 건강 기록</div>
+      <div class="info-banner"><span>💡</span><div>PostgreSQL 연결 후 건강 데이터·혈압·혈당 기록이 활성화됩니다.</div></div>
+      <div class="srv-rows">
+        <div class="srv-row"><span style="color:var(--t3)">혈압 기록</span><span class="srv-warn">DB 필요</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">혈당 기록</span><span class="srv-warn">DB 필요</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">체중 기록</span><span class="srv-warn">DB 필요</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 설정 -->
+  <div class="page" id="g-system">
+    <div class="card">
+      <div class="card-title">🖥️ 서버 상태</div>
+      <div class="srv-rows" id="g-srv-rows">
+        <div class="srv-row"><span style="color:var(--t3)">서버</span><span id="g-srv-status" class="srv-warn">확인 중...</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">DB</span><span id="g-db-status" class="srv-warn">확인 중...</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">Redis</span><span id="g-redis-status" class="srv-warn">확인 중...</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">👤 내 정보</div>
+      <div class="srv-rows">
+        <div class="srv-row"><span style="color:var(--t3)">이름</span><span id="g-my-name" style="color:var(--t2)">—</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">이메일</span><span id="g-my-email" style="color:var(--t2)">—</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">역할</span><span class="role-tag guardian">보호자</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 케어 대상자(elder) 앱 ── -->
+<div id="elder-app" class="app" style="display:none">
+  <div class="hdr" style="background:linear-gradient(135deg,#0ea5e9,#22c55e)">
+    <div class="hdr-top">
+      <div class="logo"><div class="logo-ico">🏠</div>케어링</div>
+      <div class="hdr-user">
+        <span class="role-badge">어르신</span>
+        <button class="logout-btn" id="e-logout">로그아웃</button>
+      </div>
+    </div>
+    <div class="hdr-sub" id="e-hdr-sub">오늘도 건강한 하루 되세요 😊</div>
+  </div>
+  <div class="tabs">
+    <button class="tab on" data-page="e-home">🏠 홈</button>
+    <button class="tab" data-page="e-meds">💊 복약</button>
+    <button class="tab" data-page="e-health">❤️ 건강</button>
+  </div>
+
+  <!-- 홈 -->
+  <div class="page on" id="e-home">
+    <div class="card">
+      <div class="card-title">👋 오늘 안녕하세요?</div>
+      <div style="font-size:1.1rem;font-weight:600;margin-bottom:12px" id="e-greeting">좋은 하루 되세요!</div>
+      <div class="qa-grid">
+        <button class="qa-btn qb-call" id="e-btn-family-call" style="grid-column:1/-1;font-size:1rem">📞 가족에게 전화하기</button>
+      </div>
+    </div>
+
+    <!-- SOS 버튼 -->
+    <div class="card">
+      <div class="card-title">🚨 응급 상황</div>
+      <div class="sos-wrap">
+        <button class="sos-btn" id="e-sos-btn">
+          <span style="font-size:2rem">🆘</span>
+          <span>SOS 긴급</span>
+          <span style="font-size:.7rem;opacity:.8">누르면 가족에게 알림</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 오늘 복약 요약 -->
+    <div class="card">
+      <div class="card-title">💊 오늘 복약</div>
+      <div id="e-med-summary" style="text-align:center;padding:16px">
+        <div style="font-size:2rem;margin-bottom:6px" id="e-med-icon">💊</div>
+        <div style="font-weight:700" id="e-med-txt">복약 현황 확인 중...</div>
+      </div>
+    </div>
+
+    <!-- 안부 메시지 보내기 -->
+    <div class="card">
+      <div class="card-title">💌 가족에게 안부 보내기</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-o btn-full" data-msg="잘 있어요! 오늘도 건강하게 지내고 있어요 😊">😊 잘 지내고 있어요</button>
+        <button class="btn btn-o btn-full" data-msg="밥 먹었어요! 맛있게 먹었답니다 🍚">🍚 밥 먹었어요</button>
+        <button class="btn btn-o btn-full" data-msg="약 먹었어요! 걱정 말아요 💊">💊 약 먹었어요</button>
+        <button class="btn btn-o btn-full" data-msg="보고 싶어요! 빨리 와요 💕">💕 보고 싶어요</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 복약 -->
+  <div class="page" id="e-meds">
+    <div class="card">
+      <div class="card-title">💊 오늘 복약 확인</div>
+      <div class="med-list" id="e-med-list"><div style="text-align:center;padding:20px;color:var(--t3)">등록된 복약 없음</div></div>
+    </div>
+  </div>
+
+  <!-- 건강 -->
+  <div class="page" id="e-health">
+    <div class="card">
+      <div class="card-title">❤️ 오늘 건강 상태</div>
+      <p style="font-size:.9rem;color:var(--t3);margin-bottom:12px">지금 몸 상태가 어떠세요?</p>
+      <div class="health-btns">
+        <button class="hb" data-status="very-good">😁<br>매우 좋음</button>
+        <button class="hb" data-status="good">😊<br>좋음</button>
+        <button class="hb" data-status="normal">🙂<br>보통</button>
+        <button class="hb" data-status="bad">😔<br>좋지 않음</button>
+        <button class="hb" data-status="very-bad">😰<br>많이 아픔</button>
+        <button class="hb" data-status="pain">🤒<br>통증 있음</button>
+      </div>
+      <button class="btn btn-p btn-full submit-health-btn" id="e-submit-health">건강 상태 전송</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 관리자(admin) 앱 ── -->
+<div id="admin-app" class="app" style="display:none">
+  <div class="hdr" style="background:linear-gradient(135deg,#1e293b,#334155)">
+    <div class="hdr-top">
+      <div class="logo"><div class="logo-ico">⚙️</div>케어링 관리자</div>
+      <div class="hdr-user">
+        <span class="role-badge">ADMIN</span>
+        <button class="logout-btn" id="a-logout">로그아웃</button>
+      </div>
+    </div>
+    <div class="hdr-sub">시스템 관리 대시보드</div>
+  </div>
+  <div class="tabs">
+    <button class="tab on" data-page="a-users">👥 사용자</button>
+    <button class="tab" data-page="a-system">🖥️ 서버</button>
+    <button class="tab" data-page="a-deploy">📋 배포</button>
+  </div>
+
+  <!-- 사용자 관리 -->
+  <div class="page on" id="a-users">
+    <div class="card">
+      <div class="card-title">👥 전체 사용자</div>
+      <div id="a-user-stats" style="display:flex;gap:16px;margin-bottom:14px">
+        <div style="background:var(--bg2);border-radius:10px;padding:12px 18px;flex:1;text-align:center">
+          <div style="font-size:1.5rem;font-weight:700;color:var(--p)" id="a-total-users">-</div>
+          <div style="font-size:.75rem;color:var(--t3)">전체 사용자</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:12px 18px;flex:1;text-align:center">
+          <div style="font-size:1.5rem;font-weight:700;color:var(--s)" id="a-guardian-count">-</div>
+          <div style="font-size:.75rem;color:var(--t3)">보호자</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:12px 18px;flex:1;text-align:center">
+          <div style="font-size:1.5rem;font-weight:700;color:var(--w)" id="a-elder-count">-</div>
+          <div style="font-size:.75rem;color:var(--t3)">어르신</div>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="user-table">
+          <thead><tr><th>이름</th><th>이메일</th><th>역할</th><th>가입일</th></tr></thead>
+          <tbody id="a-user-table-body"><tr><td colspan="4" style="text-align:center;padding:16px;color:var(--t3)">로딩 중...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 서버 상태 -->
+  <div class="page" id="a-system">
+    <div class="card">
+      <div class="card-title">🖥️ 서버 상태</div>
+      <div class="srv-rows">
+        <div class="srv-row"><span style="color:var(--t3)">서버 응답</span><span id="a-srv-ping" class="srv-warn">확인 중...</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">DB (PostgreSQL)</span><span id="a-db-status" class="srv-warn">확인 중...</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">Redis</span><span id="a-redis-status" class="srv-warn">확인 중...</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">버전</span><span style="color:var(--t3)">1.0.0</span></div>
+      </div>
+      <button class="btn btn-o btn-full" style="margin-top:10px;padding:10px" id="a-refresh-srv">🔄 상태 새로고침</button>
+    </div>
+  </div>
+
+  <!-- 배포 체크리스트 -->
+  <div class="page" id="a-deploy">
+    <div class="card">
+      <div class="card-title">📋 배포 체크리스트</div>
+      <div class="srv-rows">
+        <div class="srv-row"><span style="color:var(--t3)">Express 서버</span><span class="srv-ok">✓ 정상</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">JWT 인증</span><span class="srv-ok">✓ 정상</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">bcrypt JS 폴백</span><span class="srv-ok">✓ 정상</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">PostgreSQL</span><span class="srv-ok">✓ 연결됨</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">Redis</span><span class="srv-ok">✓ 연결됨</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">Twilio IVR</span><span class="srv-warn">선택 사항</span></div>
+        <div class="srv-row"><span style="color:var(--t3)">도메인/SSL</span><span class="srv-warn">배포 후 설정</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/static/js/app.js"></script>
+<footer style="display:none"></footer>
+</body>
+</html>

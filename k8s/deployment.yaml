@@ -1,0 +1,80 @@
+# caring-api Kubernetes Deployment
+# STRIDE-D-002 타임아웃 관계 문서화 (MEDIUM CVSS 5.3 수정 — Option A)
+#
+# 타임아웃 합산 설계 원칙:
+#   코드 측 직렬 최악: DB(1s) + Redis(1s + 0.5s) = 2.5s
+#   K8s probe timeoutSeconds: 3s
+#   보장: 코드 측 합산(2.5s) < probe timeout(3s) ✓
+#   여유: 0.5s (네트워크 레이턴시 등 버퍼)
+#
+# 이 파일 수정 시 main.py의 connect_timeout/socket_timeout 값과 반드시 일관성 검토 필요.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: caring-api
+  labels:
+    app: caring-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: caring-api
+  template:
+    metadata:
+      labels:
+        app: caring-api
+    spec:
+      containers:
+        - name: caring-api
+          image: caring-api:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: caring-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: caring-secrets
+                  key: redis-url
+          # [STRIDE-D-002] liveness — 프로세스 생존 여부만 (빠름)
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          # [STRIDE-D-002] readiness — DB+Redis 연결 확인
+          # timeoutSeconds=3 > 코드 측 직렬 합산(2.5s) — 불일치 없음
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3       # [STRIDE-D-002] 코드 합산 2.5s + 0.5s 버퍼
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: caring-api-svc
+spec:
+  selector:
+    app: caring-api
+  ports:
+    - port: 80
+      targetPort: 8000
+  type: ClusterIP

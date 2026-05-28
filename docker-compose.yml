@@ -1,0 +1,126 @@
+version: "3.9"
+
+# ────────────────────────────────────────────────────────────────
+#  노부모케어 API — Docker Compose 전체 스택
+#
+#  서비스:
+#    api      — Node.js Express 앱 (포트 8000)
+#    postgres — PostgreSQL 16 (데이터 퍼시스턴스 볼륨)
+#    redis    — Redis 7 (세션/알림 캐시)
+#
+#  Prisma migrate:
+#    docker compose run --rm migrate
+#
+#  기동:
+#    cp .env.example .env  # DB_PASSWORD 등 설정
+#    docker compose up -d
+# ────────────────────────────────────────────────────────────────
+
+services:
+  # ── API 서버 ─────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: senior-care-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 8000
+      DATABASE_URL: postgresql://${DB_USER:-caring}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-senior_care_db}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e",
+        "require('http').get('http://localhost:8000/ping', r => process.exit(r.statusCode===200?0:1)).on('error', ()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - ./src:/app/src:ro   # 개발 시 소스 핫리로드 (프로덕션에서는 제거)
+    networks:
+      - app-net
+
+  # ── Prisma Migrate (일회성 실행) ────────────────────────────
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prisma-gen
+    container_name: senior-care-migrate
+    command: >
+      sh -c "
+        [ -f prisma/schema.prisma ] &&
+        npx prisma migrate deploy ||
+        echo 'No prisma schema found, skipping migration'
+      "
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-caring}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-senior_care_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-net
+    profiles:
+      - migrate
+
+  # ── PostgreSQL 16 ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: senior-care-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${DB_NAME:-senior_care_db}
+      POSTGRES_USER:     ${DB_USER:-caring}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-caring} -d ${DB_NAME:-senior_care_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    ports:
+      - "5433:5432"   # 호스트 5433 → 컨테이너 5432 (충돌 방지)
+    networks:
+      - app-net
+
+  # ── Redis 7 ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: senior-care-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-net
+
+volumes:
+  pg_data:
+    name: senior-care-pg-data
+  redis_data:
+    name: senior-care-redis-data
+
+networks:
+  app-net:
+    name: senior-care-network
