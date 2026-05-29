@@ -15,6 +15,78 @@ function showToast(msg, ms = 2500) {
   setTimeout(() => t.classList.remove('show'), ms);
 }
 
+// ── 웹 알림 (Web Notification API) ─────────────────────
+function requestNotifPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function caringNotify(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    new Notification(title, { body, tag: 'caring-' + Date.now() });
+  } catch(e) {}
+}
+
+// 복약 시간 문자열 → HH:MM 변환
+function parseMedTime(timeStr) {
+  const map = {
+    '아침 8시': '08:00', '아침 9시': '09:00', '점심 12시': '12:00',
+    '오후 2시': '14:00', '저녁 6시': '18:00', '저녁 7시': '19:00',
+    '취침 전 10시': '22:00'
+  };
+  return map[timeStr] || null;
+}
+
+// 복약 알림 스케줄러
+function scheduleMedAlerts() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  // 기존 타이머 정리
+  if (window._medAlertTimers) window._medAlertTimers.forEach(clearTimeout);
+  window._medAlertTimers = [];
+
+  const now = new Date();
+  meds.forEach((med, idx) => {
+    const t = parseMedTime(med.time);
+    if (!t) return;
+    const [h, m] = t.split(':').map(Number);
+    const target = new Date(now);
+    target.setHours(h, m, 0, 0);
+    if (target <= now) return; // 이미 지난 시간
+
+    const ms = target - now;
+    const timer = setTimeout(() => {
+      const isDone = medChecks.includes(idx);
+      if (!isDone) {
+        caringNotify(
+          '💊 복약 시간입니다',
+          `${med.name} 복약할 시간이에요! (${med.time})`
+        );
+      }
+    }, ms);
+    window._medAlertTimers.push(timer);
+  });
+
+  // 저녁 9시 미완료 경고
+  const evening = new Date(now);
+  evening.setHours(21, 0, 0, 0);
+  if (evening > now) {
+    const timer = setTimeout(() => {
+      const undone = meds.filter((_, i) => !medChecks.includes(i));
+      if (undone.length > 0) {
+        caringNotify(
+          '⚠️ 복약 확인하세요',
+          `오늘 ${undone.map(m => m.name).join(', ')} 복약을 확인해주세요.`
+        );
+      }
+    }, evening - now);
+    window._medAlertTimers.push(timer);
+  }
+}
+
+
 function loadData() {
   const raw = localStorage.getItem('caring_user');
   if (raw) currentUser = JSON.parse(raw);
@@ -164,6 +236,7 @@ function hideAllApps() {
 
 function showApp(role) {
   hideAllApps();
+  requestNotifPermission();
   if (role === 'guardian') {
     document.getElementById('guardian-app').style.display = 'block';
     initGuardianApp();
@@ -429,6 +502,7 @@ function initGuardianApp() {
     meds.push({ id: Date.now(), name, time, icon: '💊' });
     saveMeds();
     renderMeds('g-med-list', true);
+    scheduleMedAlerts();
     showToast('💊 복약 추가 완료!');
   });
 }
@@ -444,6 +518,8 @@ function initElderApp() {
   document.getElementById('e-hdr-sub').textContent = '오늘도 건강한 하루 되세요 😊';
 
   renderMeds('e-med-list', true);
+  // 복약 알림 스케줄 등록
+  scheduleMedAlerts();
 
   // 복약 요약
   const done = medChecks.length, total = meds.length;
@@ -465,6 +541,7 @@ function initElderApp() {
   // SOS
   document.getElementById('e-sos-btn').addEventListener('click', () => {
     if (confirm('⚠️ 가족에게 응급 알림을 보내시겠어요?')) {
+      caringNotify('🛑 응급 상황!', currentUser.name + '님이 SOS를 누르셨습니다. 지금 바로 확인해주세요!');
       showToast('🆘 가족에게 응급 알림을 보냈습니다!', 3500);
     }
   });
@@ -475,6 +552,10 @@ function initElderApp() {
       const msg = this.dataset.msg;
       const record = { text: msg, time: Date.now(), sender: currentUser.name };
       localStorage.setItem('caring_last_wellbeing', JSON.stringify(record));
+      // localStorage에 안부 메시지 저장 (보호자 알림용)
+      localStorage.setItem('caring_last_msg', JSON.stringify({ text: msg, time: Date.now(), from: currentUser.name }));
+      // 웹 알림 (같은 브라우저 창이 여러 개인 경우 포함)
+      caringNotify('💗 ' + currentUser.name + '님의 안부 메시지', msg);
       // 위치 정보도 같이 저장 (안부 = 위치 전송 시뮬레이션)
       const homeAddr = localStorage.getItem('caring_home_address');
       if (homeAddr) {
