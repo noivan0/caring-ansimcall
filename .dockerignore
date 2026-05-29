@@ -1,0 +1,7 @@
+.env
+node_modules/
+coverage/
+*.log
+logs/
+.DS_Store
+test_caring.db
