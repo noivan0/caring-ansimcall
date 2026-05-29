@@ -248,6 +248,7 @@ textarea:focus{border-color:var(--p)}
       </div>
     </div>
     <div class="info-banner"><span style="font-size:1.1rem">💡</span><div>DB 연결 후 실시간 위치·건강·응급 알림이 활성화됩니다.</div></div>
+    <div id="guardian-location-info" style="display:none;padding:8px 12px;background:#f0fdf4;border-radius:8px;font-size:13px;margin-top:8px;color:#15803d"></div>
   </div>
 
   <!-- 복약 -->
@@ -331,6 +332,11 @@ textarea:focus{border-color:var(--p)}
           <span style="font-size:.7rem;opacity:.8">누르면 가족에게 알림</span>
         </button>
       </div>
+      <button id="e-loc-btn"
+        style="background:#10b981;color:#fff;border:none;border-radius:12px;padding:12px 20px;font-size:15px;cursor:pointer;margin-top:8px;width:100%">
+        📍 현재 위치 공유
+      </button>
+      <div id="elder-location-display" style="font-size:12px;color:#888;margin-top:4px;text-align:center"></div>
     </div>
 
     <!-- 오늘 복약 요약 -->

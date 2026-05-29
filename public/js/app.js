@@ -356,6 +356,10 @@ function initGuardianApp() {
   // 30초마다 폴링 (localStorage 기반 시뮬레이션)
   setInterval(renderLastWellbeing, 30000);
 
+  // GPS 최근 위치 표시
+  showLastLocation();
+  setInterval(showLastLocation, 300000);
+
   renderMeds('g-med-list', true);
   checkServer(
     document.getElementById('g-srv-status'),
@@ -538,6 +542,9 @@ function initElderApp() {
   document.getElementById('e-logout').addEventListener('click', () => doLogout('elder'));
   document.getElementById('e-btn-family-call').addEventListener('click', () => showToast('📞 가족 전화번호를 등록해주세요.'));
 
+  // GPS 위치 공유
+  document.getElementById('e-loc-btn').addEventListener('click', requestLocation);
+
   // SOS
   document.getElementById('e-sos-btn').addEventListener('click', () => {
     if (confirm('⚠️ 가족에게 응급 알림을 보내시겠어요?')) {
@@ -647,6 +654,51 @@ function setupRoleBtns() {
       this.classList.add('sel');
     });
   });
+}
+
+// ── GPS 위치 추적 ──────────────────────────────────────
+function requestLocation() {
+  if (!navigator.geolocation) {
+    showToast('이 기기는 위치 서비스를 지원하지 않아요');
+    return;
+  }
+  showToast('📡 위치 정보를 가져오는 중...');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude.toFixed(5);
+      const lon = pos.coords.longitude.toFixed(5);
+      const acc = Math.round(pos.coords.accuracy);
+      const locData = { lat, lon, acc, time: Date.now() };
+      localStorage.setItem('caring_location', JSON.stringify(locData));
+      showToast(`📍 위치 공유 완료 (정확도 ${acc}m)`);
+      caringNotify('📍 위치 공유', `어르신의 현재 위치가 업데이트되었습니다 (정확도 ${acc}m)`);
+      const el = document.getElementById('elder-location-display');
+      if (el) el.textContent = `위도 ${lat}, 경도 ${lon} (오차 ${acc}m)`;
+    },
+    (err) => {
+      const msgs = {
+        1: '위치 권한이 거부되었어요. 브라우저 설정에서 허용해주세요.',
+        2: '위치 정보를 가져오지 못했어요.',
+        3: '위치 요청 시간이 초과되었어요.',
+      };
+      showToast(msgs[err.code] || '위치 오류');
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
+}
+
+function showLastLocation() {
+  const raw = localStorage.getItem('caring_location');
+  if (!raw) return;
+  try {
+    const loc = JSON.parse(raw);
+    const mins = Math.round((Date.now() - loc.time) / 60000);
+    const el = document.getElementById('guardian-location-info');
+    if (el) {
+      el.innerHTML = `📍 최근 GPS 위치: ${loc.lat}, ${loc.lon} (오차 ${loc.acc}m, ${mins}분 전)`;
+      el.style.display = 'block';
+    }
+  } catch(e) {}
 }
 
 // ── 부트 ──────────────────────────────────────────────
