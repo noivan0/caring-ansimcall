@@ -261,6 +261,28 @@ function initGuardianApp() {
     document.getElementById('g-elder-status').textContent = '연결됨 · 마지막 확인: 방금';
   }
 
+  // 마지막 안부 메시지 표시 (localStorage 폴링)
+  function renderLastWellbeing() {
+    const wb = JSON.parse(localStorage.getItem('caring_last_wellbeing') || 'null');
+    let wbEl = document.getElementById('g-wellbeing-banner');
+    if (!wb) { if (wbEl) wbEl.remove(); return; }
+    const timeStr = new Date(wb.time).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    if (!wbEl) {
+      wbEl = document.createElement('div');
+      wbEl.id = 'g-wellbeing-banner';
+      wbEl.className = 'card';
+      wbEl.style.cssText = 'background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#bbf7d0';
+      const homeCard = document.querySelector('#g-home .card');
+      homeCard.parentNode.insertBefore(wbEl, homeCard.nextSibling);
+    }
+    wbEl.innerHTML = `<div class="card-title">💌 마지막 안부</div>
+      <div style="font-size:1rem;font-weight:700;color:#15803d;margin-bottom:4px">${wb.text}</div>
+      <div style="font-size:.78rem;color:#64748b">${wb.sender || '어르신'} · ${timeStr}</div>`;
+  }
+  renderLastWellbeing();
+  // 30초마다 폴링 (localStorage 기반 시뮬레이션)
+  setInterval(renderLastWellbeing, 30000);
+
   renderMeds('g-med-list', true);
   checkServer(
     document.getElementById('g-srv-status'),
@@ -285,39 +307,118 @@ function initGuardianApp() {
     document.getElementById('g-msg-text').value = '';
     document.getElementById('g-msg-form').classList.remove('open');
   });
+  // ── 위치 확인 → 수동 위치 등록 ───────────────────────
   document.getElementById('g-btn-loc').addEventListener('click', () => {
+    const lastLoc = JSON.parse(localStorage.getItem('caring_location_last') || 'null');
+    const homeAddr = localStorage.getItem('caring_home_address') || '';
     const modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:flex-end;justify-content:center';
+    const locTimeStr = lastLoc ? new Date(lastLoc.time).toLocaleString('ko-KR', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
     modal.innerHTML = `<div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px">
       <div style="font-size:1.1rem;font-weight:700;margin-bottom:12px">📍 위치 확인</div>
-      <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:14px;font-size:.875rem;color:#92400e;margin-bottom:16px">
-        <div style="font-weight:700;margin-bottom:6px">⚠️ 이 기능은 아직 준비 중입니다</div>
-        <div>실시간 위치 추적은 아래 조건이 필요합니다:<br>
-        ① PostgreSQL DB 연결<br>
-        ② 부모님 기기에 케어링 앱 설치 및 위치 권한 허용<br>
-        ③ GPS 모듈 연동</div>
+      <div style="display:flex;gap:0;background:#f0f9ff;border-radius:10px;padding:4px;margin-bottom:16px">
+        <button id="loc-tab-cur" onclick="caringLocTab('cur')" style="flex:1;padding:8px;border:none;border-radius:8px;background:#fff;font-weight:700;color:#0ea5e9;cursor:pointer;font-family:inherit">현재 위치</button>
+        <button id="loc-tab-zone" onclick="caringLocTab('zone')" style="flex:1;padding:8px;border:none;background:none;font-weight:600;color:#64748b;cursor:pointer;font-family:inherit">안전구역 등록</button>
       </div>
-      <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;padding:12px;background:#0ea5e9;color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer">확인</button>
+      <div id="loc-cur">
+        ${lastLoc
+          ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;margin-bottom:12px">
+               <div style="font-size:.78rem;color:#64748b;margin-bottom:4px">📅 마지막 위치 전송: ${locTimeStr}</div>
+               <div style="font-size:1rem;font-weight:700;color:#15803d">📍 ${lastLoc.address}</div>
+             </div>`
+          : `<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:14px;margin-bottom:12px;font-size:.875rem;color:#92400e">
+               부모님이 아직 위치를 보내지 않으셨어요.<br>어르신 앱의 <b>'안부 보내기'</b> 버튼을 눌러달라고 하세요.
+             </div>`}
+      </div>
+      <div id="loc-zone" style="display:none">
+        <div style="font-size:.85rem;color:#64748b;margin-bottom:8px">집 주소를 등록하면 홈 화면에 '안전구역'으로 표시됩니다.</div>
+        <input id="loc-addr-input" type="text" placeholder="예: 서울시 강남구 역삼동 ..." value="${homeAddr.replace(/"/g,'&quot;')}"
+          style="width:100%;padding:12px;border:1.5px solid #bae6fd;border-radius:10px;font-size:.95rem;font-family:inherit;outline:none;margin-bottom:12px;box-sizing:border-box">
+        <button onclick="caringLocSave()" style="width:100%;padding:12px;background:#22c55e;color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit">✅ 안전구역 등록</button>
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;padding:10px;background:none;border:1.5px solid #bae6fd;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;margin-top:8px;color:#64748b;font-family:inherit">닫기</button>
     </div>`;
     document.body.appendChild(modal);
-    modal.addEventListener('click', e => { if(e.target===modal) modal.remove(); });
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+    window.caringLocTab = function(tab) {
+      document.getElementById('loc-cur').style.display = tab === 'cur' ? '' : 'none';
+      document.getElementById('loc-zone').style.display = tab === 'zone' ? '' : 'none';
+      const sel = 'flex:1;padding:8px;border:none;border-radius:8px;background:#fff;font-weight:700;color:#0ea5e9;cursor:pointer;font-family:inherit';
+      const unsel = 'flex:1;padding:8px;border:none;background:none;font-weight:600;color:#64748b;cursor:pointer;font-family:inherit';
+      document.getElementById('loc-tab-cur').style.cssText = tab === 'cur' ? sel : unsel;
+      document.getElementById('loc-tab-zone').style.cssText = tab === 'zone' ? sel : unsel;
+    };
+    window.caringLocSave = function() {
+      const addr = document.getElementById('loc-addr-input').value.trim();
+      if (!addr) { showToast('주소를 입력해주세요'); return; }
+      localStorage.setItem('caring_home_address', addr);
+      showToast('✅ 안전구역이 등록되었습니다!');
+      document.querySelector('[style*="position:fixed"]').remove();
+    };
   });
+
+  // ── 보호자 초대 코드 시스템 ──────────────────────────
   document.getElementById('g-btn-family').addEventListener('click', () => {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = Date.now() + 24 * 60 * 60 * 1000;
+    localStorage.setItem('caring_invite_code', JSON.stringify({ code, expiry }));
     const modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:flex-end;justify-content:center';
     modal.innerHTML = `<div style="background:#fff;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px">
       <div style="font-size:1.1rem;font-weight:700;margin-bottom:12px">👨‍👩‍👧 보호자 추가</div>
-      <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:14px;font-size:.875rem;color:#92400e;margin-bottom:16px">
-        <div style="font-weight:700;margin-bottom:6px">⚠️ 이 기능은 아직 준비 중입니다</div>
-        <div>보호자 네트워크 기능은 아래 조건이 필요합니다:<br>
-        ① PostgreSQL DB 연결<br>
-        ② 추가할 보호자가 케어링 계정 보유<br>
-        ③ 초대 링크 발송 기능 (이메일/SMS)</div>
+      <div style="display:flex;gap:0;background:#f0f9ff;border-radius:10px;padding:4px;margin-bottom:16px">
+        <button id="inv-tab-gen" onclick="caringInvTab('gen')" style="flex:1;padding:8px;border:none;border-radius:8px;background:#fff;font-weight:700;color:#0ea5e9;cursor:pointer;font-family:inherit">코드 생성</button>
+        <button id="inv-tab-inp" onclick="caringInvTab('inp')" style="flex:1;padding:8px;border:none;background:none;font-weight:600;color:#64748b;cursor:pointer;font-family:inherit">코드 입력</button>
       </div>
-      <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;padding:12px;background:#0ea5e9;color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer">확인</button>
+      <div id="inv-gen">
+        <div style="text-align:center;padding:20px;background:#f0f9ff;border-radius:14px;margin-bottom:12px">
+          <div style="font-size:.78rem;color:#64748b;margin-bottom:8px">초대 코드 (24시간 유효)</div>
+          <div style="font-size:2.8rem;font-weight:700;letter-spacing:.25em;color:#0ea5e9;font-feature-settings:'tnum'">${code}</div>
+          <div style="font-size:.78rem;color:#94a3b8;margin-top:8px">이 코드를 보호자에게 공유하세요</div>
+        </div>
+        <button onclick="caringCopyCode('${code}')" style="width:100%;padding:12px;background:#0ea5e9;color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:0">📋 코드 복사하기</button>
+      </div>
+      <div id="inv-inp" style="display:none">
+        <div style="font-size:.85rem;color:#64748b;margin-bottom:8px">받은 6자리 코드를 입력하세요.</div>
+        <input id="inv-code-input" type="text" maxlength="6" placeholder="6자리 코드"
+          style="width:100%;padding:14px;border:1.5px solid #bae6fd;border-radius:10px;font-size:1.5rem;letter-spacing:.3em;text-align:center;font-family:inherit;outline:none;margin-bottom:12px;box-sizing:border-box">
+        <button onclick="caringConnectCode()" style="width:100%;padding:12px;background:#22c55e;color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit">🔗 연결하기</button>
+      </div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="width:100%;padding:10px;background:none;border:1.5px solid #bae6fd;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;margin-top:8px;color:#64748b;font-family:inherit">닫기</button>
     </div>`;
     document.body.appendChild(modal);
-    modal.addEventListener('click', e => { if(e.target===modal) modal.remove(); });
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+    window.caringInvTab = function(tab) {
+      document.getElementById('inv-gen').style.display = tab === 'gen' ? '' : 'none';
+      document.getElementById('inv-inp').style.display = tab === 'inp' ? '' : 'none';
+      const sel = 'flex:1;padding:8px;border:none;border-radius:8px;background:#fff;font-weight:700;color:#0ea5e9;cursor:pointer;font-family:inherit';
+      const unsel = 'flex:1;padding:8px;border:none;background:none;font-weight:600;color:#64748b;cursor:pointer;font-family:inherit';
+      document.getElementById('inv-tab-gen').style.cssText = tab === 'gen' ? sel : unsel;
+      document.getElementById('inv-tab-inp').style.cssText = tab === 'inp' ? sel : unsel;
+    };
+    window.caringCopyCode = function(c) {
+      navigator.clipboard.writeText(c)
+        .then(() => showToast('✅ 코드가 복사되었습니다!'))
+        .catch(() => showToast('코드: ' + c));
+    };
+    window.caringConnectCode = function() {
+      const input = (document.getElementById('inv-code-input').value || '').trim();
+      if (input.length !== 6) { showToast('6자리 코드를 입력해주세요'); return; }
+      const stored = JSON.parse(localStorage.getItem('caring_invite_code') || 'null');
+      if (stored && stored.code === input && Date.now() < stored.expiry) {
+        const elderData = JSON.parse(localStorage.getItem('caring_linked_elder') || '{}');
+        localStorage.setItem('caring_linked_elder', JSON.stringify({
+          name: elderData.name || '연결된 어르신', id: 'elder-' + input, code: input
+        }));
+        showToast('✅ 보호자 연결 완료!', 3000);
+        document.querySelector('[style*="position:fixed"]').remove();
+        initGuardianApp();
+      } else {
+        showToast('❌ 코드가 올바르지 않거나 만료되었습니다');
+      }
+    };
   });
 
   // 복약 추가
@@ -368,10 +469,18 @@ function initElderApp() {
     }
   });
 
-  // 안부 메시지 빠른 전송
+  // 안부 메시지 빠른 전송 (localStorage 저장 → 보호자 화면 폴링)
   document.querySelectorAll('#e-home [data-msg]').forEach(btn => {
     btn.addEventListener('click', function() {
-      showToast(`💌 "${this.dataset.msg}" 전송 완료! (데모)`);
+      const msg = this.dataset.msg;
+      const record = { text: msg, time: Date.now(), sender: currentUser.name };
+      localStorage.setItem('caring_last_wellbeing', JSON.stringify(record));
+      // 위치 정보도 같이 저장 (안부 = 위치 전송 시뮬레이션)
+      const homeAddr = localStorage.getItem('caring_home_address');
+      if (homeAddr) {
+        localStorage.setItem('caring_location_last', JSON.stringify({ address: homeAddr, time: Date.now() }));
+      }
+      showToast(`💌 "${msg}" 전송 완료!`, 3000);
     });
   });
 
