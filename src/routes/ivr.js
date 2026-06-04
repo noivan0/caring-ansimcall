@@ -10,6 +10,7 @@ const router = require('express').Router();
 const { body, validationResult } = require('express-validator');
 const { asyncHandler } = require('../middleware/asyncHandler');
 const { processIvrCall } = require('../services/IvrService');
+const { validateTwilioWebhook } = require('../middleware/twilioAuth');
 
 // ── [A09 FIX] IVR 구조화 로깅 ────────────────────────────────
 // call_sid / parent_id / child_id / status 구조화 기록 (OWASP A09)
@@ -34,8 +35,10 @@ function logIvrEvent(level, event, data) {
 }
 
 // ── POST /api/medication/ivr-response ────────────────────────
+// [A07/A08 FIX] Twilio Webhook 서명 검증 적용 — 미검증 시 임의 POST로 IVR 데이터 위조 가능
 router.post(
   '/ivr-response',
+  validateTwilioWebhook,
   [
     body('userId').isString().notEmpty().withMessage('userId는 필수입니다.'),
     body('medication').isString().notEmpty().withMessage('medication은 필수입니다.'),
