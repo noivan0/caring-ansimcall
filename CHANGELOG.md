@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [v0.4.0] 2026-06-04 — K8s 헬스 프로브 패턴 통합 릴리스 (nova-document-release)
+
+### Release Notes
+- /health/live + /health/ready 엔드포인트 정식 릴리스
+- Diataxis 3계층 문서(개발자/운영자/보안) 포함
+- nova_brain.db 패턴 3건 등록 (Redis singleton/pool, health-check symmetry, I/O timeout guard)
+
+---
+
 ## [2026-05-27] K8s 헬스 프로브 패턴 통합 (nova-learn → nova-document)
 
 ### Added
