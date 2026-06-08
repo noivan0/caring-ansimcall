@@ -48,6 +48,9 @@ let app;
 let ivrSvc;
 
 beforeAll(() => {
+  // E2E 테스트: INTERNAL_IVR_TOKEN 인증 스킵 (개발/테스트 전용)
+  process.env.SKIP_INTERNAL_IVR_AUTH='true';
+
   // IvrService 메모리 DB 주입
   const memDb = new Database(':memory:');
   memDb.pragma('journal_mode = WAL');

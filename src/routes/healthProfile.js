@@ -4,6 +4,10 @@
  * GET  /api/health-profile/:userId  — 건강 프로필 조회
  * POST /api/health-profile/:userId  — 건강 프로필 생성
  * PUT  /api/health-profile/:userId  — 건강 프로필 수정
+ *
+ * [A01 FIX Sprint-9] Guardian IDOR 수정:
+ *   - elder: 본인만 접근 가능 (기존)
+ *   - guardian: consent_status='accepted' 관계가 있는 노인만 접근 가능 (신규)
  */
 
 'use strict';
@@ -13,13 +17,69 @@ const { body, param, validationResult } = require('express-validator');
 const { authenticate } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/asyncHandler');
 const { HealthProfile } = require('../models/HealthProfile');
+const db = require('../models/db');
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
 // 인증 필수
 router.use(authenticate);
 
-// ── 공통 validation ───────────────────────────────────────────
+// ── [A01 FIX] 보호자-노인 관계 검증 헬퍼 ───────────────────────
+/**
+ * 보호자(guardianUserId)가 elderUserId와 수락된 관계인지 확인.
+ * @param {string} guardianUserId
+ * @param {string} elderUserId
+ * @returns {Promise<boolean>}
+ */
+async function verifyGuardianRelationship(guardianUserId, elderUserId) {
+  const result = await db.query(
+    `SELECT id FROM guardian_relationships
+     WHERE guardian_user_id = $1 AND elder_id = $2 AND consent_status = 'accepted'`,
+    [guardianUserId, elderUserId]
+  );
+  return result.rowCount > 0;
+}
+
+/**
+ * 공통 접근 제어 — healthProfile 라우트 전체에 적용.
+ * - elder: 본인(:userId)만 허용
+ * - guardian: 수락된 관계가 있는 :userId만 허용
+ * @returns {Promise<boolean>} true = 접근 허용
+ */
+async function checkHealthProfileAccess(req, res, targetUserId) {
+  const { role, id: requesterId } = req.user;
+
+  if (role === 'elder') {
+    if (requesterId !== targetUserId) {
+      res.status(403).json({ error: 'FORBIDDEN', message: '본인 프로필만 접근할 수 있습니다.' });
+      return false;
+    }
+    return true;
+  }
+
+  if (role === 'guardian') {
+    // guardian 본인 프로필은 항상 허용
+    if (requesterId === targetUserId) {
+      return true;
+    }
+    // [A01 FIX] 수락된 관계 검증 — 임의 userId 접근 차단
+    const hasRelation = await verifyGuardianRelationship(requesterId, targetUserId);
+    if (!hasRelation) {
+      res.status(403).json({
+        error: 'FORBIDDEN',
+        message: '관계가 확인된 노인의 프로필만 접근할 수 있습니다.',
+      });
+      return false;
+    }
+    return true;
+  }
+
+  // 알 수 없는 역할 — 차단
+  res.status(403).json({ error: 'FORBIDDEN', message: '접근 권한이 없습니다.' });
+  return false;
+}
+
+// ── 공통 validation ───────────────────────────────────────────────
 const profileValidators = [
   body('name').optional().isString().trim().isLength({ min: 1, max: 100 }),
   body('age').optional().isInt({ min: 0, max: 150 }),
@@ -38,7 +98,7 @@ const profileValidators = [
   body('emergencyContact.relation').optional().isString(),
 ];
 
-// ── GET /api/health-profile/:userId ──────────────────────────
+// ── GET /api/health-profile/:userId ──────────────────────────────
 router.get(
   '/:userId',
   [param('userId').isString().notEmpty()],
@@ -50,10 +110,9 @@ router.get(
 
     const { userId } = req.params;
 
-    // 본인 또는 보호자(guardian)만 접근 가능
-    if (req.user.role === 'elder' && req.user.id !== userId) {
-      return res.status(403).json({ error: 'FORBIDDEN', message: '본인 프로필만 조회할 수 있습니다.' });
-    }
+    // [A01 FIX] 접근 제어 — elder 본인 또는 관계 확인된 guardian
+    const allowed = await checkHealthProfileAccess(req, res, userId);
+    if (!allowed) return;
 
     const profile = HealthProfile.findByUserId(userId);
     if (!profile) {
@@ -64,7 +123,7 @@ router.get(
   })
 );
 
-// ── POST /api/health-profile/:userId ─────────────────────────
+// ── POST /api/health-profile/:userId ─────────────────────────────
 router.post(
   '/:userId',
   [
@@ -79,10 +138,9 @@ router.post(
 
     const { userId } = req.params;
 
-    // 본인 또는 보호자만 생성 가능
-    if (req.user.role === 'elder' && req.user.id !== userId) {
-      return res.status(403).json({ error: 'FORBIDDEN', message: '본인 프로필만 생성할 수 있습니다.' });
-    }
+    // [A01 FIX] 접근 제어 — elder 본인 또는 관계 확인된 guardian
+    const allowed = await checkHealthProfileAccess(req, res, userId);
+    if (!allowed) return;
 
     // 이미 존재하면 409
     const existing = HealthProfile.findByUserId(userId);
@@ -95,7 +153,7 @@ router.post(
   })
 );
 
-// ── PUT /api/health-profile/:userId ──────────────────────────
+// ── PUT /api/health-profile/:userId ──────────────────────────────
 router.put(
   '/:userId',
   [
@@ -110,10 +168,9 @@ router.put(
 
     const { userId } = req.params;
 
-    // 본인 또는 보호자만 수정 가능
-    if (req.user.role === 'elder' && req.user.id !== userId) {
-      return res.status(403).json({ error: 'FORBIDDEN', message: '본인 프로필만 수정할 수 있습니다.' });
-    }
+    // [A01 FIX] 접근 제어 — elder 본인 또는 관계 확인된 guardian
+    const allowed = await checkHealthProfileAccess(req, res, userId);
+    if (!allowed) return;
 
     const profile = HealthProfile.update(userId, req.body);
     res.json({ data: profile });

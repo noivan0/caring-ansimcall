@@ -104,6 +104,23 @@ jest.mock('../src/models/user', () => ({
   Elder: {}, Guardian: {},
 }));
 
+// [A01 FIX 테스트] db.query 모킹 — guardian_relationships 관계 검증
+// global.__mockGuardianRels: Map<guardianId, Set<elderId>> 형태로 제어
+// jest.mock() factory 내에서는 global을 통해 접근
+global.__mockGuardianRels = new Map();
+jest.mock('../src/models/db', () => ({
+  query: jest.fn(async (text, params) => {
+    const t = text.trim().toLowerCase();
+    if (t.includes('guardian_relationships')) {
+      const [guardianId, elderId] = params;
+      // global을 통해 테스트별 관계 상태 제어
+      const elders = global.__mockGuardianRels && global.__mockGuardianRels.get(guardianId) || new Set();
+      return { rowCount: elders.has(elderId) ? 1 : 0, rows: elders.has(elderId) ? [{ id: 'rel-1' }] : [] };
+    }
+    return { rowCount: 0, rows: [] };
+  }),
+}));
+
 const request = require('supertest');
 const express = require('express');
 const helmet  = require('helmet');
@@ -244,13 +261,55 @@ describe('GET /api/health-profile/:userId', () => {
     expect(res.status).toBe(403);
   });
 
-  test('guardian이 타인 프로필 조회 → 200 (허용)', async () => {
+  test('guardian이 타인 프로필 조회 → 관계 있으면 200', async () => {
+    // GUARDIAN_ID → ELDER_ID 관계 수락 설정
+    global.__mockGuardianRels.set(GUARDIAN_ID, new Set([ELDER_ID]));
     HealthProfile.create(ELDER_ID, { name: '노인프로필' });
     const token = setupAuth('guardian', GUARDIAN_ID);
     const res = await request(app)
       .get(`/api/health-profile/${ELDER_ID}`)
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
+    global.__mockGuardianRels.delete(GUARDIAN_ID);
+  });
+
+  // ── [A01 FIX] Guardian IDOR 보안 회귀 테스트 ─────────────────
+  test('[SECURITY] guardian이 관계없는 타인 프로필 조회 → 403 (IDOR 차단)', async () => {
+    // 관계 없는 상태
+    global.__mockGuardianRels.delete(GUARDIAN_ID);
+    HealthProfile.create(ELDER_ID, { name: '노인비공개프로필' });
+    const token = setupAuth('guardian', GUARDIAN_ID);
+    const res = await request(app)
+      .get(`/api/health-profile/${ELDER_ID}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORBIDDEN');
+  });
+
+  test('[SECURITY] guardian이 관계없는 타인 프로필 생성 → 403 (IDOR 차단)', async () => {
+    global.__mockGuardianRels.delete(GUARDIAN_ID);
+    const token = setupAuth('guardian', GUARDIAN_ID);
+    const res = await request(app)
+      .post(`/api/health-profile/stranger-elder-001`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: '공격자생성프로필' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORBIDDEN');
+  });
+
+  test('[SECURITY] guardian이 관계없는 타인 프로필 수정 → 403 (IDOR 차단)', async () => {
+    global.__mockGuardianRels.delete(GUARDIAN_ID);
+    HealthProfile.create(ELDER_ID, { name: '원본이름' });
+    const token = setupAuth('guardian', GUARDIAN_ID);
+    const res = await request(app)
+      .put(`/api/health-profile/${ELDER_ID}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: '공격자변경' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('FORBIDDEN');
+    // 프로필이 변경되지 않았는지 확인
+    const profile = HealthProfile.findByUserId(ELDER_ID);
+    expect(profile.name).toBe('원본이름');
   });
 });
 
