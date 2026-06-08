@@ -11,6 +11,9 @@ import hashlib
 import time
 import threading
 from datetime import datetime, timezone
+from src.core.env import load_project_env
+
+load_project_env()
 
 TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")

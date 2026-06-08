@@ -7,6 +7,10 @@
  * 환경변수:
  *   EMERGENCY_119_API_KEY   — 공공데이터포털 API 키
  *   EMERGENCY_119_API_URL   — API 기본 URL (기본값 제공)
+ *   EMERGENCY_119_RETRY_COUNT — 재시도 횟수 (기본값: 2)
+ *   EMERGENCY_119_RETRY_DELAY_MS — 재시도 간격 ms (기본값: 1500)
+ *
+ * Sprint-6: 119 연동 실패 시 자동 재시도 + 관리자 알림 추가
  */
 
 'use strict';
@@ -20,15 +24,56 @@ const API_119_BASE = process.env.EMERGENCY_119_API_URL
 
 const API_KEY = process.env.EMERGENCY_119_API_KEY;
 
+// Sprint-6: 재시도 파라미터
+const RETRY_COUNT     = parseInt(process.env.EMERGENCY_119_RETRY_COUNT     || '2', 10);
+const RETRY_DELAY_MS  = parseInt(process.env.EMERGENCY_119_RETRY_DELAY_MS  || '1500', 10);
+
+/** 대기 헬퍼 */
+function _sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 /**
- * 119 신고 API 연동
+ * 관리자에게 119 연동 최종 실패 알림
+ * ADMIN_ALERT_FCM_TOKEN 환경변수로 지정된 관리자 FCM에 발송.
+ * 미설정 시 콘솔 경고만.
+ *
+ * @param {string} eventId
+ * @param {string} reason
+ */
+async function _notifyAdminOnFailure(eventId, reason) {
+  const adminToken = process.env.ADMIN_ALERT_FCM_TOKEN;
+  if (!adminToken) {
+    console.warn(`[119 관리자알림] ADMIN_ALERT_FCM_TOKEN 미설정 — eventId=${eventId} reason=${reason}`);
+    return;
+  }
+  try {
+    // notificationService 순환 의존 방지: 직접 firebase-admin 사용
+    const admin = require('firebase-admin');
+    await admin.messaging().send({
+      token: adminToken,
+      notification: {
+        title: '[케어링] 119 연동 최종 실패',
+        body: `응급 이벤트 ${eventId} — ${reason}`,
+      },
+      android: { priority: 'high' },
+      apns: { headers: { 'apns-priority': '10' } },
+    });
+    console.warn(`[119 관리자알림] 발송 완료 eventId=${eventId}`);
+  } catch (e) {
+    console.error('[119 관리자알림] FCM 발송 실패:', e.message);
+  }
+}
+
+/**
+ * 119 신고 API 연동 (재시도 포함)
  *
  * @param {object} params
  * @param {string} params.elderId   — elders.id
  * @param {string} params.eventId   — emergency_events.id
  * @param {number} [params.latitude]
  * @param {number} [params.longitude]
- * @returns {Promise<object>}        — { success, messageId?, reason? }
+ * @returns {Promise<object>}        — { success, messageId?, reason?, attempts? }
  */
 async function trigger119({ elderId, eventId, latitude, longitude }) {
   if (!API_KEY) {
@@ -54,37 +99,51 @@ async function trigger119({ elderId, eventId, latitude, longitude }) {
     sttsCd: '001',  // 초기 접수
   };
 
-  try {
-    const response = await axios.post(API_119_BASE, reportPayload, {
-      timeout: 8_000,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  // Sprint-6: 재시도 루프 (최초 시도 + RETRY_COUNT회 재시도)
+  let lastErr = null;
+  for (let attempt = 1; attempt <= RETRY_COUNT + 1; attempt++) {
+    if (attempt > 1) {
+      console.warn(`[119] 재시도 ${attempt - 1}/${RETRY_COUNT} — eventId: ${eventId}`);
+      await _sleep(RETRY_DELAY_MS * (attempt - 1));
+    }
+    try {
+      const response = await axios.post(API_119_BASE, reportPayload, {
+        timeout: 8_000,
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-    const data = response.data;
+      const data = response.data;
 
-    // API 응답 로그
-    await db.query(
-      `UPDATE emergency_events
-       SET emergency_119_ref = $2, updated_at = NOW()
-       WHERE id = $1`,
-      [eventId, data.msgId || null]
-    );
+      // API 응답 로그
+      await db.query(
+        `UPDATE emergency_events
+         SET emergency_119_ref = $2, updated_at = NOW()
+         WHERE id = $1`,
+        [eventId, data.msgId || null]
+      );
 
-    console.log(`[119] 신고 완료 — eventId: ${eventId}, ref: ${data.msgId}`);
-    return { success: true, messageId: data.msgId };
-  } catch (err) {
-    console.error('[119] 신고 실패:', err.message);
-
-    // 실패 로그 기록
-    await db.query(
-      `UPDATE emergency_events
-       SET emergency_119_ref = 'ERROR', updated_at = NOW()
-       WHERE id = $1`,
-      [eventId]
-    );
-
-    return { success: false, reason: err.message };
+      console.log(`[119] 신고 완료 — eventId: ${eventId}, ref: ${data.msgId}, attempts: ${attempt}`);
+      return { success: true, messageId: data.msgId, attempts: attempt };
+    } catch (err) {
+      lastErr = err;
+      console.error(`[119] 신고 실패 (attempt ${attempt}):`, err.message);
+    }
   }
+
+  // 모든 재시도 소진 — 실패 기록 + 관리자 알림
+  await db.query(
+    `UPDATE emergency_events
+     SET emergency_119_ref = 'ERROR', updated_at = NOW()
+     WHERE id = $1`,
+    [eventId]
+  );
+
+  // Sprint-6: 관리자 알림 (비동기 — 응답 차단 안 함)
+  _notifyAdminOnFailure(eventId, lastErr.message).catch(e =>
+    console.error('[119 관리자알림 비동기 실패]', e.message)
+  );
+
+  return { success: false, reason: lastErr.message, attempts: RETRY_COUNT + 1 };
 }
 
 /**

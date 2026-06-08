@@ -326,9 +326,9 @@ describe('processIvrCall — 통합', () => {
   });
 });
 
-// ── Twilio HMAC 서명 검증 ─────────────────────────────────────
+// ── Twilio Webhook 서명 검증 (Twilio validateRequest contract) ───────────────
 
-describe('validateTwilioSignature — HMAC-SHA256', () => {
+describe('validateTwilioSignature — Twilio X-Twilio-Signature (SHA1 helper contract)', () => {
   const { validateTwilioSignature } = require('../src/middleware/twilioAuth');
   const crypto = require('crypto');
 
@@ -340,7 +340,7 @@ describe('validateTwilioSignature — HMAC-SHA256', () => {
     let str = url;
     const sortedKeys = Object.keys(params).sort();
     for (const key of sortedKeys) str += key + params[key];
-    return crypto.createHmac('sha256', token).update(Buffer.from(str, 'utf-8')).digest('base64');
+    return crypto.createHmac('sha1', token).update(Buffer.from(str, 'utf-8')).digest('base64');
   }
 
   it('올바른 서명 → true', () => {
@@ -369,6 +369,16 @@ describe('validateTwilioSignature — HMAC-SHA256', () => {
     const paramsReversed = { Digits: '1', userId: 'u1', CallSid: 'CA123' };
     const sig = buildExpectedSignature(authToken, url, params);
     expect(validateTwilioSignature(authToken, sig, url, paramsReversed)).toBe(true);
+  });
+
+  it('커스텀 SHA256 서명은 허용하지 않음', () => {
+    let str = url;
+    const sortedKeys = Object.keys(params).sort();
+    for (const key of sortedKeys) str += key + params[key];
+    const sha256Sig = crypto.createHmac('sha256', authToken)
+      .update(Buffer.from(str, 'utf-8'))
+      .digest('base64');
+    expect(validateTwilioSignature(authToken, sha256Sig, url, params)).toBe(false);
   });
 });
 

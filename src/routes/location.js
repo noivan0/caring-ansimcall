@@ -18,7 +18,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/asyncHandler');
 const { checkRelationship } = require('../middleware/relationship');
 const db = require('../models/db');
-const { notifyGuardians } = require('../services/notificationService');
+const { notifyGuardians, saveNotification } = require('../services/notificationService');
 
 router.use(authenticate);
 
@@ -86,7 +86,17 @@ router.post(
           type: 'SAFE_ZONE_EXIT',
           zoneName: exitedZone.name,
           location: { latitude, longitude },
-        }).catch(console.error);
+        }).catch(err => {
+          console.error('[location] notifyGuardians SAFE_ZONE_EXIT 실패:', err.message);
+          // 실패 이력 DB 기록 (silent failure 방지)
+          saveNotification(
+            elderId,
+            'NOTIFICATION_FAILURE',
+            '안전구역 이탈 알림 실패',
+            err.message,
+            { route: 'location', event: 'SAFE_ZONE_EXIT', elderId, zoneName: exitedZone.name, failedAt: new Date().toISOString() }
+          ).catch(dbErr => console.error('[location] 실패 이력 DB 기록 오류:', dbErr.message));
+        });
       }
 
       // Socket.IO로 실시간 위치 브로드캐스트

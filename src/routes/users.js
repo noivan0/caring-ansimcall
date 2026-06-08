@@ -13,11 +13,27 @@
 
 const router = require('express').Router();
 const { param, body, validationResult } = require('express-validator');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/asyncHandler');
 const { User, Elder, Guardian } = require('../models/user');
 
 router.use(authenticate);
+
+// ── GET /users ────────────────────────────────────────────────
+router.get('/', requireRole('admin'), asyncHandler(async (_req, res) => {
+  const users = await User.listForAdmin();
+  const guardians = users.filter((user) => user.role === 'guardian').length;
+  const elders = users.filter((user) => user.role === 'elder').length;
+
+  res.json({
+    data: users,
+    meta: {
+      total: users.length,
+      guardians,
+      elders,
+    },
+  });
+}));
 
 // ── GET /users/me ─────────────────────────────────────────────
 router.get('/me', asyncHandler(async (req, res) => {

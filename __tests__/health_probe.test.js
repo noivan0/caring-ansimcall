@@ -31,6 +31,24 @@ beforeEach(() => {
 
 const { app } = require('../src/app');
 
+// ── /health/canary ──────────────────────────────────────────
+describe('GET /health/canary', () => {
+  it('항상 200 ok 반환 (의존성 무관)', async () => {
+    const res = await request(app).get('/health/canary');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ok');
+    expect(res.body.canary).toBe(true);
+    expect(typeof res.body.ts).toBe('number');
+  });
+
+  it('DB 오류가 있어도 200 반환', async () => {
+    db.pool.query = jest.fn().mockRejectedValue(new Error('DB 연결 실패'));
+    const res = await request(app).get('/health/canary');
+    expect(res.status).toBe(200);
+    expect(res.body.canary).toBe(true);
+  });
+});
+
 // ── /health/live ────────────────────────────────────────────
 describe('GET /health/live', () => {
   it('항상 200 alive 반환 (DB/Redis 상태 무관)', async () => {

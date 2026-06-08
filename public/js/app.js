@@ -98,6 +98,171 @@ function saveUser() { localStorage.setItem('caring_user', JSON.stringify(current
 function saveMeds() { localStorage.setItem('caring_meds', JSON.stringify(meds)); }
 function saveChecks() { localStorage.setItem('caring_checks_' + TODAY, JSON.stringify(medChecks)); }
 
+function isDemoSession(user) {
+  return Boolean(user?.token && String(user.token).startsWith('demo-token-'));
+}
+
+async function readJsonSafe(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+async function revalidateStoredSession(storedUser, fetchImpl = fetch) {
+  if (!storedUser?.token) {
+    return {
+      ok: false,
+      error: 'MISSING_SESSION',
+      message: '저장된 로그인 정보가 없습니다.',
+    };
+  }
+
+  if (isDemoSession(storedUser)) {
+    return {
+      ok: false,
+      error: 'DEMO_SESSION',
+      message: '데모 세션은 새로고침 후 유지되지 않습니다. 다시 로그인해주세요.',
+    };
+  }
+
+  try {
+    const response = await fetchImpl('/api/v1/users/me', {
+      headers: {
+        Authorization: 'Bearer ' + storedUser.token,
+      },
+    });
+    const payload = await readJsonSafe(response);
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: payload?.error || 'INVALID_SESSION',
+        message: payload?.message || '저장된 세션을 다시 확인할 수 없습니다. 다시 로그인해주세요.',
+      };
+    }
+
+    const user = payload?.data || payload?.user || payload;
+    if (!user?.id || !user?.role) {
+      return {
+        ok: false,
+        error: 'INVALID_SESSION_PAYLOAD',
+        message: '세션 확인 응답 형식이 올바르지 않습니다.',
+      };
+    }
+
+    if (storedUser.role && user.role !== storedUser.role) {
+      return {
+        ok: false,
+        error: 'ROLE_MISMATCH',
+        message: '저장된 역할 정보가 서버 세션과 일치하지 않습니다.',
+      };
+    }
+
+    return {
+      ok: true,
+      user: {
+        token: storedUser.token,
+        role: user.role,
+        name: user.display_name || storedUser.name || '',
+        email: user.email || storedUser.email || '',
+        id: user.id,
+      },
+    };
+  } catch {
+    return {
+      ok: false,
+      error: 'SESSION_REVALIDATION_FAILED',
+      message: '서버에 연결할 수 없어 저장된 세션을 복원하지 않았습니다. 다시 로그인해주세요.',
+    };
+  }
+}
+
+function normalizeAdminUsersPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return null;
+}
+
+function buildAdminUsersViewModel(options) {
+  if (options?.mode === 'ready') {
+    const users = Array.isArray(options.users) ? options.users : [];
+    const guardians = users.filter(user => user.role === 'guardian').length;
+    const elders = users.filter(user => user.role === 'elder').length;
+    return {
+      mode: 'ready',
+      stats: {
+        total: users.length,
+        guardians,
+        elders,
+      },
+      rows: users,
+      message: users.length ? '' : '등록된 사용자가 없습니다.',
+    };
+  }
+
+  const suffix = options?.message ? ' ' + options.message : '';
+  return {
+    mode: options?.mode || 'error',
+    stats: {
+      total: '—',
+      guardians: '—',
+      elders: '—',
+    },
+    rows: [],
+    message: options?.mode === 'demo'
+      ? (options.message || '데모 관리자 계정은 실사용자 목록을 조회할 수 없습니다.')
+      : ('실데이터를 불러오지 못했습니다.' + suffix).trim(),
+  };
+}
+
+function ensureAdminStatusNote() {
+  let note = document.getElementById('a-user-status-note');
+  if (note) return note;
+
+  const stats = document.getElementById('a-user-stats');
+  if (!stats?.parentNode) return null;
+
+  note = document.createElement('div');
+  note.id = 'a-user-status-note';
+  note.className = 'info-banner';
+  note.style.display = 'none';
+  stats.parentNode.insertBefore(note, stats);
+  return note;
+}
+
+function renderAdminUsersViewModel(viewModel) {
+  const tbody = document.getElementById('a-user-table-body');
+  const note = ensureAdminStatusNote();
+
+  document.getElementById('a-total-users').textContent = String(viewModel.stats.total);
+  document.getElementById('a-guardian-count').textContent = String(viewModel.stats.guardians);
+  document.getElementById('a-elder-count').textContent = String(viewModel.stats.elders);
+
+  if (note) {
+    note.textContent = viewModel.message || '';
+    note.style.display = viewModel.message ? 'flex' : 'none';
+  }
+
+  if (viewModel.mode !== 'ready') {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--t3)">${viewModel.message}</td></tr>`;
+    return;
+  }
+
+  if (!viewModel.rows.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--t3)">등록된 사용자가 없습니다.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = viewModel.rows.map(u => `<tr>
+    <td>${u.display_name}</td>
+    <td style="color:var(--t3)">${u.email}</td>
+    <td><span class="role-tag ${u.role}">${u.role === 'guardian' ? '보호자' : u.role === 'elder' ? '어르신' : u.role}</span></td>
+    <td style="color:var(--t3);font-size:.75rem">${u.created_at ? String(u.created_at).slice(0,10) : '—'}</td>
+  </tr>`).join('');
+}
+
 // ── 인증 탭 전환 ──────────────────────────────────────
 function setupAuthTabs() {
   document.getElementById('tab-login').addEventListener('click', () => {
@@ -609,40 +774,47 @@ async function initAdminApp() {
 }
 
 async function loadAdminUsers() {
-  const tbody = document.getElementById('a-user-table-body');
+  if (isDemoSession(currentUser)) {
+    renderAdminUsersViewModel(buildAdminUsersViewModel({
+      mode: 'demo',
+      message: '데모 관리자 계정은 서버 인증이 없어 실사용자 목록을 조회할 수 없습니다.',
+    }));
+    return;
+  }
+
   try {
     const res = await fetch('/api/v1/users', {
       headers: { 'Authorization': 'Bearer ' + (currentUser?.token || '') }
     });
-    if (res.ok) {
-      const users = await res.json();
-      const guardians = users.filter(u => u.role === 'guardian').length;
-      const elders    = users.filter(u => u.role === 'elder').length;
-      document.getElementById('a-total-users').textContent = users.length;
-      document.getElementById('a-guardian-count').textContent = guardians;
-      document.getElementById('a-elder-count').textContent = elders;
-      tbody.innerHTML = users.map(u => `<tr>
-        <td>${u.display_name}</td>
-        <td style="color:var(--t3)">${u.email}</td>
-        <td><span class="role-tag ${u.role}">${u.role === 'guardian' ? '보호자' : '어르신'}</span></td>
-        <td style="color:var(--t3);font-size:.75rem">${u.created_at ? u.created_at.slice(0,10) : '—'}</td>
-      </tr>`).join('');
-    } else {
-      // 데모 데이터
-      document.getElementById('a-total-users').textContent = '3';
-      document.getElementById('a-guardian-count').textContent = '2';
-      document.getElementById('a-elder-count').textContent = '1';
-      tbody.innerHTML = `
-        <tr><td>김보호</td><td style="color:var(--t3)">guardian@caring.kr</td><td><span class="role-tag guardian">보호자</span></td><td style="color:var(--t3);font-size:.75rem">2026-01-01</td></tr>
-        <tr><td>이어르신</td><td style="color:var(--t3)">elder@caring.kr</td><td><span class="role-tag elder">어르신</span></td><td style="color:var(--t3);font-size:.75rem">2026-01-02</td></tr>
-      `;
+    const payload = await readJsonSafe(res);
+    if (!res.ok) {
+      renderAdminUsersViewModel(buildAdminUsersViewModel({
+        mode: 'error',
+        status: res.status,
+        error: payload?.error,
+        message: payload?.message || `관리자 API가 ${res.status} 응답을 반환했습니다.`,
+      }));
+      return;
     }
+
+    const users = normalizeAdminUsersPayload(payload);
+    if (!users) {
+      renderAdminUsersViewModel(buildAdminUsersViewModel({
+        mode: 'error',
+        message: '관리자 사용자 목록 응답 형식이 올바르지 않습니다.',
+      }));
+      return;
+    }
+
+    renderAdminUsersViewModel(buildAdminUsersViewModel({
+      mode: 'ready',
+      users,
+    }));
   } catch {
-    // 데모 데이터 표시
-    document.getElementById('a-total-users').textContent = '데모';
-    document.getElementById('a-guardian-count').textContent = '1';
-    document.getElementById('a-elder-count').textContent = '1';
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:12px;color:var(--t3)">데모 모드 — DB 연결 후 실제 데이터 표시</td></tr>';
+    renderAdminUsersViewModel(buildAdminUsersViewModel({
+      mode: 'error',
+      message: '네트워크 오류로 관리자 데이터를 불러오지 못했습니다.',
+    }));
   }
 }
 
@@ -701,20 +873,44 @@ function showLastLocation() {
   } catch(e) {}
 }
 
-// ── 부트 ──────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
-  loadData();
-  setupAuthTabs();
-  setupRoleBtns();
+async function restorePersistedSession() {
+  if (!(currentUser && currentUser.token)) return;
 
-  // 로그인 버튼
-  document.getElementById('login-btn').addEventListener('click', doLogin);
-  document.getElementById('register-btn').addEventListener('click', doRegister);
-  document.getElementById('login-email').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-pw').focus(); });
-  document.getElementById('login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-
-  // 자동 로그인 (토큰 유지)
-  if (currentUser && currentUser.token) {
-    showApp(currentUser.role);
+  const result = await revalidateStoredSession(currentUser);
+  if (!result.ok) {
+    localStorage.removeItem('caring_user');
+    currentUser = null;
+    showAuthErr(result.message || '저장된 세션이 만료되어 다시 로그인해주세요.');
+    return;
   }
-});
+
+  currentUser = result.user;
+  saveUser();
+  showApp(currentUser.role);
+}
+
+// ── 부트 ──────────────────────────────────────────────
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', async function() {
+    loadData();
+    setupAuthTabs();
+    setupRoleBtns();
+
+    // 로그인 버튼
+    document.getElementById('login-btn').addEventListener('click', doLogin);
+    document.getElementById('register-btn').addEventListener('click', doRegister);
+    document.getElementById('login-email').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-pw').focus(); });
+    document.getElementById('login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+    await restorePersistedSession();
+  });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    buildAdminUsersViewModel,
+    isDemoSession,
+    normalizeAdminUsersPayload,
+    revalidateStoredSession,
+  };
+}

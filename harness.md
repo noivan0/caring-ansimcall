@@ -13,9 +13,16 @@
 - 주요 API: /api/auth/phone/* / /api/family/invite/* / /api/ivr/*
 
 ## 테스트
-- Jest: 213 PASS (Node.js 라우터)
-- pytest: 37 PASS (Python FastAPI)
-- 전체: 250 PASS
+- Jest: 430 PASS (Node.js 라우터, 22 suites)
+- pytest: 142 PASS (Python FastAPI)
+- 전체: 572 PASS
+
+### canonical QA commands (repo root)
+- Node.js: `npm test -- --runInBand`
+- Python: `python3 -m pytest -q`
+
+주의: Python 하네스는 console-script `pytest -q`가 아니라
+module invocation `python3 -m pytest -q`를 기준 명령으로 사용한다.
 
 ## 보안 패치 이력
 - R8: SSRF callback_url 화이트리스트

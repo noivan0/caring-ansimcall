@@ -136,14 +136,16 @@ class TestHealthReady:
         # 싱글톤 리셋 → _get_db_engine()이 create_engine 호출하게 함
         main_module._db_engine = None
         try:
-            with patch("sqlalchemy.create_engine", return_value=mock_engine) as mock_ce:
-                # 첫 번째 호출 → create_engine 1회 실행
-                res1 = client.get("/health/ready")
-                # 두 번째, 세 번째 호출 → 싱글톤 재사용, create_engine 추가 호출 없음
-                res2 = client.get("/health/ready")
-                res3 = client.get("/health/ready")
-                # create_engine은 앱 수명 중 딱 1회만 호출
-                assert mock_ce.call_count == 1
+            # DATABASE_URL을 명시적으로 설정해야 _get_db_engine() 내 create_engine 분기 진입
+            with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@localhost/testdb"}):
+                with patch("sqlalchemy.create_engine", return_value=mock_engine) as mock_ce:
+                    # 첫 번째 호출 → create_engine 1회 실행
+                    res1 = client.get("/health/ready")
+                    # 두 번째, 세 번째 호출 → 싱글톤 재사용, create_engine 추가 호출 없음
+                    res2 = client.get("/health/ready")
+                    res3 = client.get("/health/ready")
+                    # create_engine은 앱 수명 중 딱 1회만 호출
+                    assert mock_ce.call_count == 1
         finally:
             main_module._db_engine = saved_engine
             main_module._redis_pool = saved_redis

@@ -181,6 +181,13 @@ app.get('/health/ready', async (_req, res) => {
   res.status(allOk ? 200 : 503).json(result);
 });
 
+// ── GET /health/canary — 카나리 배포 자동 판정 프로브 ────────
+// 카나리 파이프라인에서 Go/No-Go 자동 판정에 사용
+// 의존성 없이 항상 200 응답 (프로세스 생존 확인 전용)
+app.get('/health/canary', (_req, res) => {
+  res.json({ status: 'ok', canary: true, ts: Date.now() });
+});
+
 // ── GET /health — 상세 헬스체크 (DB + Redis + 버전) ──────────
 app.get('/health', async (_req, res) => {
   const version = require('../package.json').version;
@@ -216,6 +223,36 @@ app.get('/health', async (_req, res) => {
 });
 
 // ── 404 처리 ─────────────────────────────────────────────────
+// [Sprint-4 P1] /openapi.json — API 명세 스냅샷 (FastAPI 스타일 호환 형식)
+app.get('/openapi.json', (_req, res) => {
+  const pkg = require('../package.json');
+  res.json({
+    openapi: '3.0.3',
+    info: {
+      title: '케어링 API (Express)',
+      description: '가족 소통 지원 알림 서비스 — 의료기기/의료서비스 아님',
+      version: pkg.version,
+    },
+    servers: [{ url: '/api/v1', description: '기본 API 경로' }],
+    paths: {
+      '/auth/register': { post: { tags: ['auth'], summary: '신규 가입' } },
+      '/auth/login': { post: { tags: ['auth'], summary: '로그인 → JWT 발급' } },
+      '/auth/me': { get: { tags: ['auth'], summary: '현재 인증 사용자 프로필', security: [{ bearerAuth: [] }] } },
+      '/auth/refresh': { post: { tags: ['auth'], summary: 'Access 토큰 갱신' } },
+      '/auth/logout': { post: { tags: ['auth'], summary: '로그아웃' } },
+      '/users': { get: { tags: ['users'], summary: '전체 사용자 목록 (admin)' } },
+      '/users/me': { get: { tags: ['users'], summary: '내 프로필', security: [{ bearerAuth: [] }] } },
+      '/users/me/elders': { get: { tags: ['users'], summary: '케어 노인 목록 (보호자용)' } },
+      '/medications': { get: { tags: ['medications'], summary: '복약 목록' } },
+      '/location': { get: { tags: ['location'], summary: 'GPS 위치 조회' } },
+      '/emergency': { post: { tags: ['emergency'], summary: 'SOS 신고' } },
+    },
+    components: {
+      securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
+    },
+  });
+});
+
 app.use((_req, res) => {
   res.status(404).json({ error: 'NOT_FOUND', message: '요청한 리소스가 없습니다.' });
 });

@@ -45,7 +45,7 @@ class ConsentUpdate(BaseModel):
     health_share_consent: bool
 
 
-@router.post("/schedules")
+@router.post("")
 @limiter.limit("20/minute")
 def create_schedule(request: Request, body: ScheduleCreate, user=Depends(get_current_user)):
     """
@@ -61,7 +61,7 @@ def create_schedule(request: Request, body: ScheduleCreate, user=Depends(get_cur
     }
 
 
-@router.post("/schedules/{schedule_id}/consent")
+@router.post("/{schedule_id}/consent")
 @limiter.limit("20/minute")
 def update_consent(request: Request, schedule_id: int, body: ConsentUpdate, user=Depends(get_current_user)):
     """
@@ -97,7 +97,7 @@ def update_consent(request: Request, schedule_id: int, body: ConsentUpdate, user
     return {"status": "consented", "reminder_active": True}
 
 
-@router.post("/schedules/{schedule_id}/send")
+@router.post("/{schedule_id}/send")
 @limiter.limit("5/minute")
 def trigger_reminder(request: Request, schedule_id: int, user=Depends(get_current_user)):
     """
@@ -160,7 +160,7 @@ def trigger_reminder(request: Request, schedule_id: int, user=Depends(get_curren
     }
 
 
-@router.get("/schedules/{schedule_id}/logs")
+@router.get("/{schedule_id}/logs")
 def get_reminder_logs(schedule_id: int, user=Depends(get_current_user)):
     """알림 발송 이력 조회 (자녀 대시보드용)
     [R23-EDGE-004 FIX] 소유권 검증 추가 — IDOR 차단
@@ -188,7 +188,7 @@ def get_reminder_logs(schedule_id: int, user=Depends(get_current_user)):
 
 
 # [gstack P3] 부모님 사전 안내 SMS 발송
-@router.post("/schedules/{schedule_id}/notify-parent")
+@router.post("/{schedule_id}/notify-parent")
 @limiter.limit("5/minute")
 def send_parent_intro_sms(request: Request, schedule_id: int, user=Depends(get_current_user)):
     """
@@ -256,7 +256,7 @@ def send_parent_intro_sms(request: Request, schedule_id: int, user=Depends(get_c
 
 
 # [gstack P6] 주간 응답 요약 카드
-@router.get("/schedules/weekly-summary")
+@router.get("/weekly-summary")
 def get_weekly_summary(user=Depends(get_current_user)):
     """
     [gstack P6] 자녀 앱 홈 주간 응답 요약 카드

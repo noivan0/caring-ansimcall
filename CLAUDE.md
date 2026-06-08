@@ -10,7 +10,7 @@ harness.md
 ## Phase 순서
 0. 컨텍스트 확인 (_workspace/ 존재 시 재개, 없으면 신규)
 1. 환경 설정 (환경변수 + .env 확인)
-2. 테스트 실행 (pytest -q)
+2. 테스트 실행 (Python: `python3 -m pytest -q` / Node: `npm test -- --runInBand`)
 3. 품질 검사 (Codex 감사, 기준: 70점 이상)
 4. 배포 준비 (노이반 .env 8개 수신 후)
 

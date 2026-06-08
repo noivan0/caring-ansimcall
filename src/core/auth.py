@@ -10,6 +10,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from src.core.env import load_project_env
+
+load_project_env()
 
 SECRET_KEY = os.environ["SECRET_KEY"]
 REFRESH_SECRET_KEY = os.environ["REFRESH_SECRET_KEY"]  # 기본값 없음 — 미설정 시 서버 시작 실패 (명시적 오류가 silent 취약보다 낫다)

@@ -3,6 +3,7 @@ R69 Track C — 케어링 커버리지 갭 테스트 (헤르 작성)
 """
 import pytest
 import sys, os, time
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -47,8 +48,11 @@ class TestSeniorCareCoverageR69:
             "expires_at": time.time() - 3600,
         }
         body = FamilyInviteAcceptRequest(invite_token="expired_tok_xyz99", otp="123456")
+        from starlette.requests import Request as StarletteRequest
+        from starlette.testclient import TestClient
+        mock_request = MagicMock(spec=StarletteRequest)
         with pytest.raises(HTTPException) as exc:
-            accept_family_invite(body)
+            accept_family_invite(mock_request, body)
         assert exc.value.status_code == 410
         assert "만료" in str(exc.value.detail)
 
@@ -56,9 +60,11 @@ class TestSeniorCareCoverageR69:
         """존재하지 않는 초대 토큰 → 404"""
         from fastapi import HTTPException
         from src.api.routes.phone_verify import accept_family_invite, FamilyInviteAcceptRequest
+        from starlette.requests import Request as StarletteRequest
         body = FamilyInviteAcceptRequest(invite_token="nonexistent_tok_abc", otp="123456")
+        mock_request = MagicMock(spec=StarletteRequest)
         with pytest.raises(HTTPException) as exc:
-            accept_family_invite(body)
+            accept_family_invite(mock_request, body)
         assert exc.value.status_code == 404
 
     def test_family_member_role_invalid_rejects(self):
@@ -119,7 +125,7 @@ class TestSeniorCareCoverageR69:
             for i in range(6)
         ]
         members[0]["role"] = "primary"
-        r = client.post("/api/family/family/groups", json={
+        r = client.post("/api/family/groups", json={
             "parent_name": "홍길동",
             "parent_phone": "01011111111",
             "members": members

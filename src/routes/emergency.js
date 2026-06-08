@@ -14,7 +14,7 @@ const { authenticate } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/asyncHandler');
 const { checkRelationship } = require('../middleware/relationship');
 const db = require('../models/db');
-const { notifyGuardians } = require('../services/notificationService');
+const { notifyGuardians, saveNotification } = require('../services/notificationService');
 const { trigger119 } = require('../services/emergencyService');
 
 router.use(authenticate);
@@ -66,7 +66,18 @@ router.post(
         eventId: event.id,
         latitude,
         longitude,
-      }).catch(err => console.error('[119 연동 실패]', err.message));
+      }).catch(err => {
+        console.error('[119 연동 실패]', err.message);
+        // 실패 이력 DB 기록 (silent failure 방지) — trigger119 내부에서 재시도+관리자알림 처리
+        // 여기서는 route 레벨 catch 추적용 기록
+        saveNotification(
+          elderId,
+          'NOTIFICATION_FAILURE',
+          '119 연동 최종 실패',
+          err.message,
+          { route: 'emergency', event: 'SOS_119_FAILURE', elderId, eventId: event.id, failedAt: new Date().toISOString() }
+        ).catch(dbErr => console.error('[emergency] 실패 이력 DB 기록 오류:', dbErr.message));
+      });
 
       // Socket.IO 실시간 알림 (보호자 앱 화면 강제 이동)
       const io = req.app.get('io');

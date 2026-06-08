@@ -16,7 +16,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/asyncHandler');
 const { checkRelationship } = require('../middleware/relationship');
 const db = require('../models/db');
-const { notifyGuardians } = require('../services/notificationService');
+const { notifyGuardians, saveNotification } = require('../services/notificationService');
 
 // ── 인증 + 관계 검증 미들웨어 적용 ──────────────────────────
 router.use(authenticate);
@@ -111,7 +111,17 @@ router.post(
       const vital = result.rows[0];
 
       // 임계값 초과 시 보호자 알림 (비동기 — 응답을 블로킹하지 않음)
-      checkThresholdsAndNotify(elderId, vital).catch(console.error);
+      checkThresholdsAndNotify(elderId, vital).catch(err => {
+        console.error('[health] checkThresholdsAndNotify 실패:', err.message);
+        // 실패 이력 DB 기록 (silent failure 방지)
+        saveNotification(
+          elderId,
+          'NOTIFICATION_FAILURE',
+          '임계값 초과 알림 실패',
+          err.message,
+          { route: 'health', event: 'HEALTH_ALERT', elderId, failedAt: new Date().toISOString() }
+        ).catch(dbErr => console.error('[health] 실패 이력 DB 기록 오류:', dbErr.message));
+      });
 
       res.status(201).json({ data: vital });
     });

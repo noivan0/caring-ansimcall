@@ -22,6 +22,7 @@ const cron = require('node-cron');
 const db   = require('../models/db');
 const { notifyGuardians, notifyUser, sendFcmMessage } = require('../services/notificationService');
 const { Elder } = require('../models/Elder');
+const { createMedicationReminderCall, isTwilioVoiceEnabled } = require('../services/twilioVoiceService');
 
 const CHECK_INTERVAL_MINUTES = parseInt(process.env.MED_CHECK_INTERVAL_MINUTES || '30');
 const ESCALATION_COUNT       = parseInt(process.env.MED_ESCALATION_COUNT       || '3');
@@ -54,6 +55,7 @@ async function sendDueReminders() {
   const mm        = String(now.getMinutes()).padStart(2, '0');
   const timeSlot  = `${hh}:${mm}`;              // "08:00" 형식
   const dayOfWeek = now.getDay() || 7;           // 1=월, 7=일 (JS 0=일 → 7로 변환)
+  const twilioVoiceEnabled = isTwilioVoiceEnabled();
 
   // scheduled_times 배열에 현재 시각이 포함되고,
   // repeat_days 배열에 오늘 요일이 포함된 활성 스케줄 탐색
@@ -64,6 +66,7 @@ async function sendDueReminders() {
        ms.medication_name,
        ms.dosage,
        e.user_id AS elder_user_id,
+       u.phone AS elder_phone,
        u.fcm_token AS elder_fcm_token,
        u.display_name AS elder_name
      FROM medication_schedules ms
@@ -88,6 +91,22 @@ async function sendDueReminders() {
     );
 
     if (alreadyTaken.rows.length) continue; // 이미 복약함
+
+    if (twilioVoiceEnabled) {
+      try {
+        await createMedicationReminderCall({
+          to: sch.elder_phone,
+          userId: sch.elder_user_id,
+          elderId: sch.elder_id,
+          scheduleId: sch.schedule_id,
+          medication: sch.medication_name,
+          dosage: sch.dosage,
+          displayName: sch.elder_name,
+        });
+      } catch (err) {
+        console.error('[복약 IVR] Twilio 발신 실패:', err.message);
+      }
+    }
 
     // 노인에게 복약 알림 발송
     await sendFcmMessage(

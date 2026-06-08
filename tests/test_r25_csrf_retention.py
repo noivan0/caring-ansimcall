@@ -45,7 +45,8 @@ class TestCookieCSRFDefense:
         mock_response = MagicMock(spec=Response)
         mock_request = MagicMock(spec=Request)
         mock_request.state = MagicMock()
-        result = login_with_cookie(mock_request, mock_response, user_id=1)
+        mock_user = {"user_id": 1, "payload": {"sub": "1", "type": "access"}}
+        result = login_with_cookie(mock_request, mock_response, current_user=mock_user)
 
         assert result["auth_method"] == "cookie"
         assert result["csrf_protection"] == "SameSite=Strict"

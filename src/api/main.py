@@ -11,6 +11,9 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from src.api.rate_limiter import limiter  # 순환 임포트 방지 — 공유 인스턴스
 from starlette.middleware.base import BaseHTTPMiddleware  # [R54-HDR-001]
+from src.core.env import load_project_env
+
+load_project_env()
 
 def _parse_cors_origins(env_val: str, default: str) -> list:
     """[R50-CORS-001 FIX] 와일드카드 차단 — ALLOWED_ORIGINS='*' 시 기본값 사용"""
@@ -55,8 +58,8 @@ def _get_redis() -> aioredis.Redis | None:
         if redis_url:
             _redis_pool = aioredis.Redis.from_url(
                 redis_url,
-                socket_connect_timeout=2,
-                socket_timeout=1,
+                socket_connect_timeout=1,   # [STRIDE-D-002] 1s (직렬 합산 2.5s < K8s probe 3s)
+                socket_timeout=0.5,         # [STRIDE-D-002] 0.5s
                 decode_responses=True,
             )
     return _redis_pool
@@ -82,7 +85,7 @@ def _get_db_engine():
                 _db_engine = create_engine(
                     db_url,
                     pool_pre_ping=True,
-                    connect_args={"connect_timeout": 3},
+                    connect_args={"connect_timeout": 1},  # [STRIDE-D-002] 1s (직렬 합산 2.5s < K8s probe 3s)
                 )
     return _db_engine
 

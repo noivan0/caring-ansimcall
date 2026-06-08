@@ -18,6 +18,7 @@ Phase 2 — 양측 동의 초대 시스템 (헤르2 설계 반영)
 import secrets
 import time
 import re
+import threading
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, field_validator
 
@@ -37,6 +38,7 @@ _KR_MOBILE = re.compile(r"^\+82(10|11|16|17|18|19)\d{7,8}$")
 # Phase 2: 가족 초대 스토어 (운영환경 → Redis/DB)
 # {invite_token: {"child_user_id": int, "parent_phone": str, "otp": str, "expires_at": float}}
 _invite_store: dict = {}
+_invite_lock = threading.Lock()  # [CSO-M2 FIX] A04 — concurrent accept TOCTOU 레이스 방어
 _INVITE_TTL = 86400  # 24시간
 
 
@@ -184,7 +186,9 @@ class FamilyInviteAcceptRequest(BaseModel):
 
 
 @router.post("/family/invite")
+@limiter.limit("3/minute")  # [CSO-M1 FIX] A05 — SMS 무제한 발송 차단, IP 기준 1분 3회
 def send_family_invite(
+    request: Request,
     body: FamilyInviteRequest,
     user: dict = Depends(get_current_user),
 ):
@@ -237,25 +241,65 @@ def accept_family_invite(request: Request, body: FamilyInviteAcceptRequest):
     - OTP + invite_token 모두 맞아야 등록 완료
     - 성공 시 _invite_store에서 즉시 삭제 (재사용 불가)
     """
-    record = _invite_store.get(body.invite_token)
-    if not record:
-        raise HTTPException(status_code=404, detail="유효하지 않은 초대 링크입니다.")
+    with _invite_lock:  # [CSO-M2 FIX] A04 — TOCTOU 레이스 방어: check-then-act 원자화
+        record = _invite_store.get(body.invite_token)
+        if not record:
+            raise HTTPException(status_code=404, detail="유효하지 않은 초대 링크입니다.")
 
-    if time.time() > record["expires_at"]:
-        del _invite_store[body.invite_token]
-        raise HTTPException(status_code=410, detail="초대 링크가 만료되었습니다. 자녀분께 재요청해주세요.")
+        if time.time() > record["expires_at"]:
+            del _invite_store[body.invite_token]
+            raise HTTPException(status_code=410, detail="초대 링크가 만료되었습니다. 자녀분께 재요청해주세요.")
 
-    if not secrets.compare_digest(record["otp"], body.otp.strip()):
-        raise HTTPException(status_code=400, detail="인증번호가 올바르지 않습니다.")
+        if not secrets.compare_digest(record["otp"], body.otp.strip()):
+            raise HTTPException(status_code=400, detail="인증번호가 올바르지 않습니다.")
 
-    # 동의 완료 처리
-    parent_phone = record["parent_phone"]
-    child_user_id = record["child_user_id"]
-    parent_name = record["parent_name"]
-    del _invite_store[body.invite_token]  # one-time use
+        # 동의 완료 처리
+        parent_phone = record["parent_phone"]
+        child_user_id = record["child_user_id"]
+        parent_name = record["parent_name"]
+        del _invite_store[body.invite_token]  # one-time use (Lock 내부에서 원자적 삭제)
 
-    # TODO: DB에 family_consent 기록 저장
-    # {child_user_id, parent_phone, parent_name, consented_at, consent_ip}
+    # [Sprint-7] DB에 family_consent 기록 저장
+    # guardian_relationships.consent_status 업데이트
+    # child_user_id, parent_phone, parent_name, consented_at, consent_ip 기록
+    import os as _os
+    _db_url = _os.getenv("DATABASE_URL", "")
+    _consent_ip = request.client.host if request.client else "unknown"
+    if _db_url:
+        try:
+            from sqlalchemy import create_engine, text as _text  # type: ignore[import]
+            from sqlalchemy.orm import sessionmaker as _sessionmaker
+            _engine = create_engine(_db_url, pool_pre_ping=True)
+            _Session = _sessionmaker(bind=_engine)
+            with _Session() as _sess:
+                # guardian_relationships.consent_status 업데이트
+                _sess.execute(
+                    _text(
+                        """
+                        UPDATE guardian_relationships
+                           SET consent_status = 'accepted',
+                               consented_at   = datetime('now'),
+                               consent_ip     = :consent_ip,
+                               parent_name    = :parent_name
+                         WHERE child_user_id = :child_user_id
+                           AND parent_phone  = :parent_phone
+                        """
+                    ),
+                    {
+                        "child_user_id": child_user_id,
+                        "parent_phone": parent_phone,
+                        "parent_name": parent_name,
+                        "consent_ip": _consent_ip,
+                    },
+                )
+                _sess.commit()
+        except Exception as _db_err:
+            # DB 저장 실패는 비치명적 — 동의 응답은 성공 반환 (서비스 연속성)
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                f"[family_consent] DB guardian_relationships 업데이트 실패: "
+                f"child_user_id={child_user_id}, err={_db_err}"
+            )
 
     return {
         "success": True,

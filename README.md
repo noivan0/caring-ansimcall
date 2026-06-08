@@ -63,7 +63,12 @@ REDIS_URL=redis://localhost:6379/0
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_PHONE_NUMBER=
+APP_BASE_URL=
+IVR_KILL_SWITCH=false
 ```
+
+`APP_BASE_URL`는 Twilio가 다시 호출할 수 있는 공개 HTTPS 주소여야 합니다.
+예: `https://caring.example.com`
 
 ### 3. DB 초기화
 
@@ -91,6 +96,19 @@ npm start
 
 서버가 **포트 8001**에서 실행됩니다.  
 브라우저에서 `http://localhost:8001/app` 접속
+
+### 5. QA / 회귀 테스트
+
+```bash
+# Node.js 회귀 테스트
+npm test -- --runInBand
+
+# Python 회귀 테스트 (repo root 기준 canonical command)
+python3 -m pytest -q
+```
+
+주의: 이 저장소의 Python QA 자동화는 `pytest -q` 대신
+`python3 -m pytest -q`를 기준 명령으로 사용합니다.
 
 ---
 
@@ -145,7 +163,7 @@ docker run -p 8001:8001 --env-file .env caring
    - 파일: `src/services/notificationService.js` (구현됨, FCM 키 필요)
 
 5. **SMS/IVR 복약 알림**
-   - TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN 설정 필요
+   - TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, APP_BASE_URL 설정 필요
    - 파일: `src/cron/medication_reminder.js`
 
 ### 🟡 권장 (사용자 경험 개선)

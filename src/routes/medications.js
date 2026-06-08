@@ -17,7 +17,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/asyncHandler');
 const { checkRelationship } = require('../middleware/relationship');
 const db = require('../models/db');
-const { notifyGuardians } = require('../services/notificationService');
+const { notifyGuardians, saveNotification } = require('../services/notificationService');
 
 router.use(authenticate);
 
@@ -103,7 +103,17 @@ router.post(
         type: 'MEDICATION_TAKEN',
         scheduleId: schedule_id,
         takenAt: result.rows[0].taken_at,
-      }).catch(console.error);
+      }).catch(err => {
+        console.error('[medications] notifyGuardians 실패:', err.message);
+        // 실패 이력 DB 기록 (silent failure 방지)
+        saveNotification(
+          elderId,
+          'NOTIFICATION_FAILURE',
+          '복약 보호자 알림 실패',
+          err.message,
+          { route: 'medications', event: 'MEDICATION_TAKEN', elderId, scheduleId: schedule_id, failedAt: new Date().toISOString() }
+        ).catch(dbErr => console.error('[medications] 실패 이력 DB 기록 오류:', dbErr.message));
+      });
 
       res.status(201).json({ data: result.rows[0] });
     });

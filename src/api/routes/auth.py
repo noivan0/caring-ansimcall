@@ -49,7 +49,7 @@ class TokenPair(BaseModel):
     token_type: str = "bearer"
 
 
-@router.post("/auth/refresh", response_model=TokenPair)
+@router.post("/refresh", response_model=TokenPair)
 @limiter.limit("20/minute")
 def refresh_token(request: Request, response: Response, refresh_token: str):
     """
@@ -89,17 +89,20 @@ def refresh_token(request: Request, response: Response, refresh_token: str):
         raise HTTPException(401, "토큰 갱신에 실패했습니다. 다시 로그인해주세요.")
 
 
-@router.post("/auth/login/cookie")
+@router.post("/login/cookie")
 @limiter.limit("10/minute")
-def login_with_cookie(request: Request, response: Response, user_id: int):
+def login_with_cookie(request: Request, response: Response, current_user: dict = Depends(get_current_user)):
     """
     [R25-①] SSE 전용 쿠키 기반 로그인.
     [R26-①] SSE 전용 토큰(30분)과 일반 access_token(24h) scope 분리.
+    [CSO-001 FIX] A01/A07 — Bearer 토큰 인증 필수. 임의 user_id 지정 불가,
+    인증된 현재 사용자의 ID만 사용하여 쿠키 발급.
 
     - access_token 쿠키 (24h, path=/): 일반 API 접근용
     - sse_token 쿠키 (30min, path=/api/ai): SSE 전용, 최소권한
     - refresh_token 쿠키 (30일, path=/api/auth/refresh): 갱신 전용
     """
+    user_id = current_user["user_id"]  # [CSO-001] 요청자 본인 ID만 사용
     access = create_access_token(user_id)
     refresh = create_refresh_token(user_id)
     sse = create_sse_token(user_id)
@@ -118,13 +121,13 @@ def login_with_cookie(request: Request, response: Response, user_id: int):
     }
 
 
-@router.get("/auth/me")
+@router.get("/me")
 def get_me(current_user: dict = Depends(get_current_user)):
     """현재 로그인 사용자 정보"""
     return {"user_id": current_user["user_id"]}
 
 
-@router.post("/auth/logout")
+@router.post("/logout")
 @limiter.limit("30/minute")
 def logout(request: Request, response: Response, current_user: dict = Depends(get_current_user)):
     """
@@ -140,7 +143,7 @@ def logout(request: Request, response: Response, current_user: dict = Depends(ge
     return {"message": "로그아웃 완료 — 쿠키 삭제됨"}
 
 
-@router.post("/auth/sse-refresh")
+@router.post("/sse-refresh")
 @limiter.limit("30/minute")
 def sse_token_refresh(request: Request, response: Response, current_user: dict = Depends(get_current_user)):
     """
@@ -179,7 +182,7 @@ def sse_token_refresh(request: Request, response: Response, current_user: dict =
 import logging as _logging
 _logger = _logging.getLogger(__name__)
 
-@router.delete("/auth/account")
+@router.delete("/account")
 @limiter.limit("5/minute")
 def delete_account(
     request: Request,

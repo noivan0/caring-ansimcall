@@ -6,6 +6,9 @@
 import os
 import re
 import urllib.parse
+from src.core.env import load_project_env
+
+load_project_env()
 
 TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
@@ -201,6 +204,7 @@ IVR_STATUS_ACTIONS = {
         "reason": "부모님 전화 미수신 — 2시간 후 재시도, 최대 3회",
     },
     "busy": {
+        "retry_after_hours": None,        # [HIGH FIX] 명시적 None — 시간 단위 없음
         "retry_after_minutes": 30,
         "max_retries": 5,
         "escalate_to": "sms_fallback",
@@ -208,15 +212,24 @@ IVR_STATUS_ACTIONS = {
     },
     "failed": {
         "retry_after_hours": 1,
+        "retry_after_minutes": None,
         "max_retries": 2,
         "escalate_to": "child_app_alert",
         "reason": "통화 실패 — 1시간 후 재시도, 2회 후 자녀 앱 알림",
     },
     "completed": {
         "retry_after_hours": None,
+        "retry_after_minutes": None,
         "max_retries": 0,
         "escalate_to": None,
         "reason": "통화 완료",
+    },
+    "canceled": {
+        "retry_after_hours": None,
+        "retry_after_minutes": None,
+        "max_retries": 0,
+        "escalate_to": "child_app_alert",
+        "reason": "통화 취소 — 자녀 앱 알림",
     },
 }
 
@@ -231,10 +244,13 @@ def handle_ivr_status_callback(call_sid: str, call_status: str, retry_count: int
     status_lower = call_status.lower()
     config = IVR_STATUS_ACTIONS.get(status_lower, IVR_STATUS_ACTIONS["failed"])
 
-    should_retry = (
-        config["retry_after_hours"] is not None
-        and retry_count < config["max_retries"]
+    # [HIGH FIX] retry_after_hours OR retry_after_minutes 중 하나라도 있으면 retry 가능
+    # busy는 retry_after_hours=None이지만 retry_after_minutes=30 → 정상 처리
+    has_retry_interval = (
+        config.get("retry_after_hours") is not None
+        or config.get("retry_after_minutes") is not None
     )
+    should_retry = has_retry_interval and retry_count < config["max_retries"]
     escalate = not should_retry and config["escalate_to"] is not None
 
     return {

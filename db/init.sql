@@ -235,6 +235,7 @@ CREATE TABLE public.medication_schedules (
     scheduled_times text[] NOT NULL,
     repeat_days smallint[] DEFAULT '{1,2,3,4,5,6,7}'::smallint[] NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
+    reminded_at timestamp with time zone,
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT medication_schedules_frequency_check CHECK (((frequency)::text = ANY ((ARRAY['daily'::character varying, 'twice_daily'::character varying, 'three_times'::character varying, 'weekly'::character varying, 'as_needed'::character varying])::text[])))

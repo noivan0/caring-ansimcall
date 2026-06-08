@@ -60,7 +60,7 @@ class FamilyGroupCreate(BaseModel):
         return v.strip()
 
 
-@router.post("/family/groups")
+@router.post("/groups")
 @limiter.limit("10/minute")
 def create_family_group(request: Request, body: FamilyGroupCreate, user=Depends(get_current_user)):
     """
@@ -104,7 +104,7 @@ def create_family_group(request: Request, body: FamilyGroupCreate, user=Depends(
     }
 
 
-@router.get("/family/groups/{group_id}/status")
+@router.get("/groups/{group_id}/status")
 def get_group_status(group_id: str, user=Depends(get_current_user)):
     """가족 그룹 알림 현황 대시보드"""
     return {

@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS medication_schedules (
   scheduled_times  TEXT[]  NOT NULL,  -- ['08:00','20:00']
   repeat_days      SMALLINT[] NOT NULL DEFAULT '{1,2,3,4,5,6,7}',  -- 1=월 ~ 7=일
   is_active        BOOLEAN NOT NULL DEFAULT true,
+  reminded_at      TIMESTAMPTZ,                          -- 마지막 알림 발송 시각
   created_by       UUID REFERENCES users(id),
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

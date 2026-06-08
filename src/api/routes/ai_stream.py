@@ -313,9 +313,12 @@ _SSE_SESSION_REGISTRY: dict = {}  # session_id → {user_id, progress, last_stag
 
 
 @router.post("/ai/stream/session")
-async def create_sse_session(request: dict = None):
+@_limiter.limit("10/minute")  # [CSO-002 FIX] A01/A07 — 인증 없는 세션 발급 rate limit 추가
+async def create_sse_session(request: Request):
     """
     [R27 엣지케이스] SSE 연결 전 session_id 발급.
+    [CSO-002 FIX] A01 — 인증은 세션 사용(GET /ai/stream/v2) 시점에서 수행.
+    rate limit으로 session_id 대량 생성(메모리 소진 DoS) 방어.
 
     클라이언트는 session_id를 보관하고 재연결 시 /ai/stream/v2?session_id=... 로 전달.
     서버는 마지막 stage부터 resume하여 중복 분석 방지.

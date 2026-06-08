@@ -185,6 +185,48 @@ def test_handle_ivr_status_callback_completed():
     assert result["escalate_to"] is None
 
 
+# [MEDIUM FIX] busy/failed/canceled 테스트 케이스 추가
+def test_handle_ivr_status_callback_busy():
+    """busy → should_retry=True (minutes 단위), KeyError 없음 (HIGH 버그 수정 검증)"""
+    from src.services.ivr_service import handle_ivr_status_callback
+    result = handle_ivr_status_callback("CA123", "busy", retry_count=0)
+    assert result["should_retry"] is True
+    assert result["next_retry_minutes"] == 30
+    assert result["escalate_to"] is None
+
+
+def test_handle_ivr_status_callback_busy_max_retry():
+    """busy 5회 소진 → sms_fallback escalate"""
+    from src.services.ivr_service import handle_ivr_status_callback
+    result = handle_ivr_status_callback("CA123", "busy", retry_count=5)
+    assert result["should_retry"] is False
+    assert result["escalate_to"] == "sms_fallback"
+
+
+def test_handle_ivr_status_callback_failed():
+    """failed → should_retry=True (hours 단위)"""
+    from src.services.ivr_service import handle_ivr_status_callback
+    result = handle_ivr_status_callback("CA123", "failed", retry_count=0)
+    assert result["should_retry"] is True
+    assert result["next_retry_hours"] == 1
+
+
+def test_handle_ivr_status_callback_failed_max_retry():
+    """failed 2회 소진 → child_app_alert escalate"""
+    from src.services.ivr_service import handle_ivr_status_callback
+    result = handle_ivr_status_callback("CA123", "failed", retry_count=2)
+    assert result["should_retry"] is False
+    assert result["escalate_to"] == "child_app_alert"
+
+
+def test_handle_ivr_status_callback_canceled():
+    """canceled → no retry, child_app_alert"""
+    from src.services.ivr_service import handle_ivr_status_callback
+    result = handle_ivr_status_callback("CA123", "canceled", retry_count=0)
+    assert result["should_retry"] is False
+    assert result["escalate_to"] == "child_app_alert"
+
+
 # --- 일일 발신 제한 ---
 def test_check_daily_limit_first_call():
     """첫 발신은 허용"""

@@ -159,6 +159,23 @@ router.post(
   })
 );
 
+// ── GET /auth/me — 현재 인증 사용자 프로필 조회 ───────────────
+// [Sprint-4 P1] localStorage.caring_user 백엔드 세션 검증 지원 엔드포인트
+router.get('/me', authenticate, asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND', message: '사용자를 찾을 수 없습니다.' });
+  res.json({
+    data: {
+      id: user.id,
+      email: user.email,
+      display_name: user.display_name,
+      role: user.role,
+      phone: user.phone || null,
+      created_at: user.created_at,
+    },
+  });
+}));
+
 // ── POST /auth/logout ────────────────────────────────────────
 router.post('/logout', authenticate, asyncHandler(async (req, res) => {
   const { refreshToken } = req.body;

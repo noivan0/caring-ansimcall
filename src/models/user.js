@@ -75,6 +75,20 @@ const User = {
   },
 
   /**
+   * 관리자용 사용자 목록
+   * 인증된 admin만 라우터 레이어에서 접근 가능해야 한다.
+   */
+  async listForAdmin() {
+    const result = await db.query(
+      `SELECT id, email, display_name, role, created_at
+       FROM users
+       WHERE is_deleted = false
+       ORDER BY created_at DESC, email ASC`
+    );
+    return result.rows;
+  },
+
+  /**
    * FCM 토큰 갱신 (앱 재설치 시 호출)
    */
   async updateFcmToken(userId, fcmToken) {

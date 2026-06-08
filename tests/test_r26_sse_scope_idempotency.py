@@ -75,7 +75,8 @@ class TestSSETokenScopeSeparation:
         mock_response = MagicMock(spec=Response)
         mock_request = MagicMock(spec=Request)
         mock_request.state = MagicMock()
-        result = login_with_cookie(mock_request, mock_response, user_id=1)
+        mock_user = {"user_id": 1, "payload": {"sub": "1", "type": "access"}}
+        result = login_with_cookie(mock_request, mock_response, current_user=mock_user)
 
         # set_cookie 3회 호출
         assert mock_response.set_cookie.call_count == 3
