@@ -124,7 +124,31 @@ def verify_otp_endpoint(
     if not ok:
         raise HTTPException(status_code=400, detail="인증번호가 올바르지 않거나 만료되었습니다.")
 
-    # TODO: DB에 phone_verified=True 저장 (user_id 연결)
+    # [Sprint-5] DB에 phone_verified=True + phone 번호 저장 (user_id 연결)
+    user_id = _user["user_id"]
+    import os as _os
+    db_url = _os.getenv("DATABASE_URL", "")
+    if db_url:
+        try:
+            from sqlalchemy import create_engine, text as _text  # type: ignore[import]
+            from sqlalchemy.orm import sessionmaker as _sessionmaker
+            _engine = create_engine(db_url, pool_pre_ping=True)
+            _Session = _sessionmaker(bind=_engine)
+            with _Session() as _sess:
+                _sess.execute(
+                    _text(
+                        "UPDATE users SET phone = :phone, phone_verified = 1 WHERE id = :uid"
+                    ),
+                    {"phone": body.phone, "uid": user_id},
+                )
+                _sess.commit()
+        except Exception as _db_err:
+            # DB 저장 실패는 비치명적 — 응답은 성공 반환 (서비스 연속성)
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                f"[phone_verify] DB phone_verified 저장 실패: user_id={user_id}, err={_db_err}"
+            )
+
     return {
         "success": True,
         "phone_verified": True,
@@ -205,7 +229,8 @@ def send_family_invite(
 
 
 @router.post("/family/invite/accept")
-def accept_family_invite(body: FamilyInviteAcceptRequest):
+@limiter.limit("5/minute")  # [CSO-003 FIX] A07 — OTP 브루트포스 방어 rate limit 추가
+def accept_family_invite(request: Request, body: FamilyInviteAcceptRequest):
     """
     [Phase 2] 부모님이 직접 OTP 입력 + 동의 완료.
     - 인증 없이 호출 가능 (부모님은 앱 미설치 상태일 수 있음)
